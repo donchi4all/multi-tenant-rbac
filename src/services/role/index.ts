@@ -54,16 +54,17 @@ export class RoleService implements IRoleService {
           new TenantErrorHandler(TenantErrorHandler.DoesNotExist)
         );
       }
+      const tenantId: number = tenant.id as number;
       const role = Promise.all(
         payload.map(async (payload) => {
           const [title, slug] = Array(2).fill(payload.title);
           return await Role.findOrCreate({
-            where: { tenantId: tenant.id, slug, title },
+            where: { tenantId, slug, title },
             defaults: {
               ...payload,
               slug,
               title,
-              tenantId: tenant.id,
+              tenantId,
             },
           });
         })
@@ -82,33 +83,24 @@ export class RoleService implements IRoleService {
    * @param payload
    * @returns
    */
-  public async findOrCreate(
-    searchParams: Array<string>,
-    payload: RoleCreationType
-  ): Promise<Role> {
-    const search = searchParams.reduce(
-      (result: { [x: string]: string }, param) => {
-        result[param] = param;
-
-        return result;
-      },
-      {} as { [x: string]: string }
-    );
+  public async findOrCreate(searchParams: Array<string>, payload: RoleCreationType): Promise<Role> {
+    const search = searchParams.reduce((result, param) => {
+      result[param] = param;
+      return result;
+    }, {} as { [key: string]: string });
 
     try {
-      Role.findOne({
-        where: {
-          [Op.or]: search,
-        },
-      });
-    } catch (err) {
-      try {
+      const role = await Role.findOne({ where: { [Op.or]: search } });
+      if (role) {
+        return role;
+      } else {
         return await Role.create(payload);
-      } catch (err) {
-        throw err;
       }
+    } catch (err) {
+      throw err;
     }
   }
+
 
   /**
    * Update an existing worklfow
@@ -227,10 +219,10 @@ export class RoleService implements IRoleService {
    * @param roleId
    * @param rejectIfNotFound
    */
-  async findRoleById(
+  public async findRoleById(
     tenantId: RoleInterface['tenantId'],
     roleId: RoleInterface['id'],
-    rejectIfNotFound: boolean = true
+    rejectIfNotFound = true,
   ): Promise<Role> {
     try {
       const role = await Role.findOne({
@@ -242,15 +234,15 @@ export class RoleService implements IRoleService {
       });
 
       if (!role && rejectIfNotFound) {
-        return Promise.reject(
-          new RoleErrorHandler(RoleErrorHandler.RoleDoNotExist)
-        );
+        throw new RoleErrorHandler(RoleErrorHandler.RoleDoNotExist);
       }
-      return role;
-    } catch (e) {
+
+      return role!;
+    } catch (err) {
       throw new RoleErrorHandler(CommonErrorHandler.Fatal);
     }
   }
+
 
   /**
    * Sync Role with permission
@@ -267,7 +259,7 @@ export class RoleService implements IRoleService {
       const tenant = await tenantService.findTenantById(
         tenantId
       );
-      const getRole = await this.findRole(tenant.id, role);
+      const getRole = await this.findRole(tenant.id as number, role);
       const roleId = getRole.id;
       if (!Array.isArray(permissions)) {
         permissions = [permissions];
@@ -322,17 +314,21 @@ export class RoleService implements IRoleService {
     permissionId: RolePermissionInterface['permissionId'],
     rejectIfNotFound: boolean = true
   ): Promise<RolePermission> {
-    const rolePermission = RolePermission.findOne({
-      where: { roleId, permissionId },
-    });
+    try {
+      const rolePermission = await RolePermission.findOne({
+        where: { roleId, permissionId },
+      });
 
-    if (!rolePermission && rejectIfNotFound) {
-      return Promise.reject(
-        new RolePermissionErrorHandler(RolePermissionErrorHandler.DoesNotExist)
-      );
+      if (!rolePermission && rejectIfNotFound) {
+        throw new RolePermissionErrorHandler(RolePermissionErrorHandler.DoesNotExist);
+      }
+
+      return rolePermission!;
+    } catch (e) {
+      throw new RolePermissionErrorHandler(CommonErrorHandler.Fatal);
     }
-    return rolePermission;
   }
+
 
   /**
    * Tenant User Role Checker
@@ -368,26 +364,33 @@ export class RoleService implements IRoleService {
   public async findRoleByName(
     tenantId: RoleInterface['tenantId'],
     identifier: string,
-    rejectIfNotFound: boolean = true
+    rejectIfNotFound = true
   ): Promise<Role> {
     try {
       const role = await Role.findOne({
         where: {
-          [Op.or]: [{ slug: identifier }, { title: identifier }],
-          [Op.and]: [{ tenantId }],
+          [Op.and]: [
+            { tenantId },
+            {
+              [Op.or]: [
+                { slug: identifier },
+                { title: identifier },
+              ],
+            },
+          ],
         },
       });
 
       if (!role && rejectIfNotFound) {
-        return Promise.reject(
-          new RoleErrorHandler(RoleErrorHandler.RoleDoNotExist)
-        );
+        throw new RoleErrorHandler(RoleErrorHandler.RoleDoNotExist);
       }
-      return role;
-    } catch (e) {
+
+      return role!;
+    } catch (err) {
       throw new RoleErrorHandler(CommonErrorHandler.Fatal);
     }
   }
+
 
   public async findRoles(
     tenantId: RoleInterface['tenantId'],

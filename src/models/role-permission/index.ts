@@ -29,29 +29,29 @@ export class RolePermission extends Model<RolePermissionInterface> {
     sourceKey: 'permissionId',
      foreignKey: 'id',
   })
-  permissions: Permission[];
+  permissions!: Permission[];
 
   @AllowNull(false)
   @Column(DataType.INTEGER)
   @ForeignKey(() => Role)
-  roleId: RolePermissionInterface['roleId'];
+  roleId!: RolePermissionInterface['roleId'];
 
   @AllowNull(false)
   @Column(DataType.INTEGER)
   @ForeignKey(() => Permission)
-  permissionId: RolePermissionInterface['permissionId'];
+  permissionId!: RolePermissionInterface['permissionId'];
 
   @CreatedAt
   @Column({
     type: DataType.DATE,
     defaultValue: DataType.NOW,
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdatedAt
   @Column({
     type: DataType.DATE,
     defaultValue: DataType.NOW,
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 }

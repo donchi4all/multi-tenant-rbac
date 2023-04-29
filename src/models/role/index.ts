@@ -12,6 +12,7 @@ import {
   HasMany,
   BelongsToMany,
   Unique,
+  ForeignKey,
 } from 'sequelize-typescript';
 import { StringsFormating as Str } from '../../utils';
 import { RoleInterface, RoleCreationType } from './IRole';
@@ -24,7 +25,7 @@ export class Role extends Model<RoleInterface, RoleCreationType> {
   @PrimaryKey
   @AutoIncrement
   @Column(DataType.INTEGER)
-  id: number;
+  id: RoleInterface['id'];
 
   @BelongsTo(() => Tenant, {
     foreignKey: 'tenantId',
@@ -32,10 +33,15 @@ export class Role extends Model<RoleInterface, RoleCreationType> {
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE',
   })
-  tenant: Tenant;
+  tenant!: Tenant;
+
+  @AllowNull(false)
+  @Column(DataType.INTEGER)
+  @ForeignKey(() => Tenant)
+  tenantId!: RoleInterface['tenantId'];
 
   @HasMany(() => RolePermission)
-  rolePermissions: RolePermission[];
+  rolePermissions!: RolePermission[];
 
 
   @BelongsToMany(() => Permission, {
@@ -45,11 +51,11 @@ export class Role extends Model<RoleInterface, RoleCreationType> {
     foreignKey: 'roleId',
     foreignKeyConstraint: false,
   })
-  permission: Permission[];
+  permission!: Permission[];
 
   @Unique(true)
   @Column(DataType.STRING)
-  title: RoleInterface['title'];
+  title!: RoleInterface['title'];
 
   @Column({
     type: DataType.STRING,
@@ -57,26 +63,26 @@ export class Role extends Model<RoleInterface, RoleCreationType> {
       this.setDataValue('slug', Str.toSlugCase(value));
     },
   })
-  slug: RoleInterface['slug'];
+  slug!: RoleInterface['slug'];
 
   @AllowNull
   @Column(DataType.STRING)
   description?: RoleInterface['description'];
 
   @Column(DataType.BOOLEAN)
-  isActive: RoleInterface['isActive'];
+  isActive!: RoleInterface['isActive'];
 
   @CreatedAt
   @Column({
     type: DataType.DATE,
     defaultValue: DataType.NOW,
   })
-  createdAt: RoleInterface['createdAt'];
+  createdAt!: RoleInterface['createdAt'];
 
   @UpdatedAt
   @Column({
     type: DataType.DATE,
     defaultValue: DataType.NOW,
   })
-  updatedAt: RoleInterface['updatedAt'];
+  updatedAt!: RoleInterface['updatedAt'];
 }

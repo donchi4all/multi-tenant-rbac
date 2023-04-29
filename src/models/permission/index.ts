@@ -14,10 +14,10 @@ export class Permission extends Model<PermissionInterface, PermissionCreationTyp
   id: PermissionInterface['id'];
 
   @BelongsToMany(() => Role, () => RolePermission)
-  roles: Role[]
+  roles!: Role[]
 
   @Column(DataType.STRING)
-  title: PermissionInterface['title'];
+  title!: PermissionInterface['title'];
 
   @Column({
     type: DataType.STRING,
@@ -25,14 +25,14 @@ export class Permission extends Model<PermissionInterface, PermissionCreationTyp
       this.setDataValue('slug', Str.toSlugCase(value));
     }
   })
-  slug: PermissionInterface['slug'];
+  slug!: PermissionInterface['slug'];
 
   @AllowNull
   @Column(DataType.STRING)
   description: PermissionInterface['description'];
 
   @Column(DataType.BOOLEAN)
-  isActive: PermissionInterface['isActive'];
+  isActive!: PermissionInterface['isActive'];
 
   @CreatedAt
   @Column({

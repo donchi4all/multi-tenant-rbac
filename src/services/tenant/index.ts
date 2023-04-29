@@ -78,7 +78,7 @@ export class TenantService implements ITenantService {
           new TenantErrorHandler(TenantErrorHandler.DoesNotExist)
         );
       }
-      return tenant;
+      return tenant!;
     } catch (err) {
       throw new TenantErrorHandler(CommonErrorHandler.Fatal);
     }
@@ -105,7 +105,7 @@ export class TenantService implements ITenantService {
           new TenantErrorHandler(TenantErrorHandler.DoesNotExist)
         );
       }
-      return tenant;
+      return tenant!;
     } catch (err) {
       throw new TenantErrorHandler(CommonErrorHandler.Fatal);
     }
@@ -248,11 +248,11 @@ export class TenantService implements ITenantService {
     const tenant = await this.findTenantById(tenantId);
 
     //check if this role belong to this tenant
-    const foundRole = await roleService.findRole(tenant.id, role);
+    const foundRole = await roleService.findRole(tenant.id as number, role);
     const tenantUserRole = await this.findUserRole(
       tenant.id,
       userId,
-      foundRole.id,
+      foundRole.id as number,
       false
     );
 
@@ -268,9 +268,9 @@ export class TenantService implements ITenantService {
       const status = UserRoleStatus.ACTIVE;
       return await UserRole.create({
         userId,
-        roleId: foundRole.id,
+        roleId: foundRole.id as number,
         status,
-        tenantId: tenant.id,
+        tenantId: tenant.id as number,
       });
     } catch (err) {
       throw new UserRoleErrorHandler(CommonErrorHandler.Fatal);
@@ -308,7 +308,7 @@ export class TenantService implements ITenantService {
         )
       );
     }
-    return tenantUserRole;
+    return tenantUserRole!;
   }
 
   /**
@@ -369,49 +369,45 @@ export class TenantService implements ITenantService {
    * @param userId
    * @param rejectIfNotFound
    */
-  public async getTenantUserPermissions(
-    platformId: string,
-    tenantId: string,
-    userId: string | number,
-    rejectIfNotFound: boolean = true
-  ): Promise<UserPermissionResponse> {
-    const tenant = await this.findTenant(tenantId);
-    const tenantUserRole = await UserRole.findAll({
-      where: { tenantId: tenant.id, userId },
+
+  public async getTenantUserPermissions(tenantId: number, userId: number): Promise<UserPermissionResponse> {
+    const userRole = await UserRole.findOne({
+      where: {
+        tenantId,
+        userId,
+      },
       include: [
         {
-          model: Permission,
-          attributes: ['id', 'title', 'slug', 'description'],
+          model: Role,
+          include: [
+            {
+              model: RolePermission,
+              include: [
+                {
+                  model: Permission,
+                },
+              ],
+            },
+          ],
         },
       ],
     });
-    if (!tenantUserRole && rejectIfNotFound) {
-      return Promise.reject(
-        new UserRoleErrorHandler(
-          UserRoleErrorHandler.DoesNotExist
-        )
-      );
+
+    if (!userRole) {
+      throw new Error(`User with id ${userId} not found in tenant with id ${tenantId}`);
     }
-    const permissions = tenantUserRole.reduce((result: any, role: any) => {
-      role.permissions.forEach(
-        (permission: any) => delete permission.dataValues.RolePermission
-      );
 
-      result = [...result, ...role.permissions];
-
-      return result;
+    const permissions = userRole.roles.reduce((acc: Array<Record<string, any>>, role) => {
+      role.rolePermissions.forEach((permission) => {
+        const permissionExists = acc.find((p) => p.id === permission.id);
+        if (!permissionExists) {
+          acc.push(permission.toJSON());
+        }
+      });
+      return acc;
     }, []);
 
-    const uniquePermissions = [
-      ...new Map(
-        permissions.map((item: { [x: string]: any }) => [item['title'], item])
-      ).values(),
-    ];
-
-    return {
-      userId: userId,
-      permissions: uniquePermissions,
-    };
+    return { userId, permissions };
   }
 
   /**
@@ -505,7 +501,7 @@ export class TenantService implements ITenantService {
         where: { tenantId: tenant.id, userId },
       });
 
-      const roles = await roleService.findRoles(tenant.id, role);
+      const roles = await roleService.findRoles(tenant.id as number, role);
 
       const records: any[] = roles.map((role) => {
         return {
@@ -527,7 +523,7 @@ export class TenantService implements ITenantService {
     roleSlug: string
   ): Promise<Array<UserRoleInterface>> {
     const tenant = await this.findTenantById(tenantId);
-    const role = await roleService.findRoleByName(tenant.id, roleSlug);
+    const role = await roleService.findRoleByName(tenant.id as number, roleSlug);
     const users = await UserRole.findAll({
       where: { tenantId: tenant.id, roleId: role.id, status: 'active' },
     });

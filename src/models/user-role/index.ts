@@ -29,7 +29,7 @@ export class UserRole extends Model<UserRoleInterface> {
   id: UserRoleInterface['id'];
 
   @Column(DataType.STRING)
-  userId: UserRoleInterface['userId'];
+  userId!: UserRoleInterface['userId'];
 
   @BelongsTo(() => Tenant, {
     foreignKey: 'tenantId',
@@ -37,13 +37,13 @@ export class UserRole extends Model<UserRoleInterface> {
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE',
   })
-  tenant: Tenant;
+  tenant!: Tenant;
 
   @BelongsTo(() => Role, {
     foreignKey: 'roleId',
     foreignKeyConstraint: false,
   })
-  role: Role;
+  role!: Role;
 
   @BelongsToMany(() => Permission, {
     through: {
@@ -53,20 +53,20 @@ export class UserRole extends Model<UserRoleInterface> {
     foreignKey: 'roleId',
     foreignKeyConstraint: false,
   })
-  permissions: Permission[];
+  permissions!: Permission[];
 
   @AllowNull(false)
   @Column(DataType.INTEGER)
   @ForeignKey(() => Tenant)
-  tenantId: UserRoleInterface['tenantId'];
+  tenantId!: UserRoleInterface['tenantId'];
 
   @AllowNull(false)
   @Column(DataType.INTEGER)
   @ForeignKey(() => Role)
-  roleId: UserRoleInterface['roleId'];
+  roleId!: UserRoleInterface['roleId'];
 
   @Column(DataType.ENUM(...Object.values(UserRoleStatus)))
-  status: UserRoleInterface['status'];
+  status!: UserRoleInterface['status'];
 
   @CreatedAt
   @Column({
@@ -81,4 +81,7 @@ export class UserRole extends Model<UserRoleInterface> {
     defaultValue: DataType.NOW,
   })
   updatedAt: UserRoleInterface['updatedAt'];
+
+  roles!: Role[];
+
 }

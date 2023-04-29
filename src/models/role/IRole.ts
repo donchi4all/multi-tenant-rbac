@@ -1,5 +1,5 @@
 export interface RoleInterface {
-  id: number;
+  id?: number;
   tenantId: number;
   title: string;
   slug: string;
@@ -11,6 +11,6 @@ export interface RoleInterface {
 
 export type RoleCreationType = Pick<RoleInterface, 'tenantId' | 'title' | 'slug' | 'description' | 'isActive'>;
 
-export type RoleCreationRequestType = Pick<RoleInterface, 'title' | 'description' | 'isActive'>;
+export type RoleCreationRequestType = Pick<RoleInterface, 'title' | 'description' | 'isActive' | 'tenantId'>;
 
 export type RoleEditRequestType = RoleCreationRequestType;

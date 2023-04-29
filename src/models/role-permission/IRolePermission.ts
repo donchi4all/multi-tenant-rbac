@@ -1,5 +1,5 @@
 export interface RolePermissionInterface {
-  id?: number;
+  id?: number | undefined;
   roleId: number;
   permissionId: number;
 }

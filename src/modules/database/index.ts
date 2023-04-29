@@ -22,7 +22,7 @@ export interface MongodbConfig {
 }
 
 
-export interface rbacConfig {
+export type rbacConfig = {
   dialect: 'mysql' | 'mongodb';
   mysqlConfig?: MysqlConfig;
   mongodbConfig?: MongodbConfig;
@@ -31,17 +31,17 @@ export interface rbacConfig {
 
 export class Database {
   @LoggerDecorator('Database')
-  private log: LoggerInterface;
-  private sequelize: Sequelize;
+  private log!: LoggerInterface;
+  private sequelize!: Sequelize;
 
   public async init(config: rbacConfig): Promise<void> {
 
-    if (config.dialect === 'mongodb') {
+    if (config.dialect === 'mongodb' && config.mongodbConfig) {
       const { url } = config.mongodbConfig
       await this.connect(url)
       mongoose.connection.on('disconnected', this.connect.bind(this, url))
       this.log.info(`Successfully connected to ${url}`)
-    } else if (config.dialect === 'mysql') {
+    } else if (config.dialect === 'mysql' && config.mysqlConfig) {
       const { mysqlConfig } = config
       this.sequelize = new Sequelize({
         ...mysqlConfig,

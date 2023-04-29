@@ -23,10 +23,10 @@ export class Tenant extends Model<TenantInterface> {
   @PrimaryKey
   @AutoIncrement
   @Column(DataType.INTEGER)
-  id: TenantInterface['id'];
+  id!: TenantInterface['id'];
 
   @Column(DataType.STRING)
-  name: TenantInterface['name'];
+  name!: TenantInterface['name'];
 
   @Unique
   @Column({
@@ -35,10 +35,10 @@ export class Tenant extends Model<TenantInterface> {
       this.setDataValue('slug', Str.toSlugCase(value));
     },
   })
-  slug: TenantInterface['slug'];
+  slug!: TenantInterface['slug'];
 
   @HasMany(() => UserRole)
-  businessUsers: UserRole[];
+  businessUsers!: UserRole[];
 
 
   @AllowNull
