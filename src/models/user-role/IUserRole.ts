@@ -16,4 +16,6 @@ export enum UserRoleStatus {
   ACTIVE = 'active',
 }
 
-export type UserRoleCreationType = Pick<UserRoleInterface, 'userId'|'tenantId'> & {role: string}
+export type UserRoleCreationType = Pick<UserRoleInterface, 'userId'|'tenantId'> & {roleSlug: string}
+
+export type UserRoleRequestType = { roleId: number, tenantId: number, userId: string}

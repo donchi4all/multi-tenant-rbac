@@ -17,3 +17,9 @@ export type TenantCreationRequestType = Pick<
   TenantInterface,
   'name' | 'description' | 'isActive'
 >
+
+export type TenantUpdatedRequestType = {
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+}

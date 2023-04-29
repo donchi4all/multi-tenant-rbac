@@ -2,6 +2,7 @@ import { ITenantService } from './ITenantService';
 import {
   TenantCreationType,
   TenantInterface,
+  TenantUpdatedRequestType,
 } from '../../models/tenant/ITenant';
 import roleService from '../../services/role';
 import {
@@ -89,7 +90,7 @@ export class TenantService implements ITenantService {
    * @param tenantId
    * @param rejectIfNotFound
    */
- public async findTenantById(
+  public async findTenantById(
     tenantId: TenantInterface['id'],
     rejectIfNotFound: boolean = true
   ): Promise<Tenant> {
@@ -175,8 +176,8 @@ export class TenantService implements ITenantService {
    * @param _slug
    */
   public async updateTenant(
-    tenantData: TenantCreationType,
     _slug: TenantInterface['slug'],
+    tenantData: TenantUpdatedRequestType
   ): Promise<TenantInterface> {
     const tenant = await this.findTenant(_slug, false);
     if (!tenant) {
@@ -198,9 +199,9 @@ export class TenantService implements ITenantService {
    * @param _slug
    */
   public async getTenantWithRoleAndPermissions(
-    _slug: TenantInterface['slug']
+    tenantSlug: TenantInterface['slug']
   ): Promise<unknown> {
-    const tenant = await this.findTenant(_slug);
+    const tenant = await this.findTenant(tenantSlug);
 
     return await Tenant.findAll({
       where: { id: tenant.id },
@@ -241,22 +242,22 @@ export class TenantService implements ITenantService {
    *
    * @param tenantUserRoleData
    */
-  public async assignRoleToTenantUser(
-    tenantUserRoleData: UserRoleCreationType
+  public async assignRoleToUser(
+    userRoleData: UserRoleCreationType
   ): Promise<UserRoleInterface> {
-    const { userId, role, tenantId } = tenantUserRoleData;
+    const { userId, roleSlug, tenantId } = userRoleData;
     const tenant = await this.findTenantById(tenantId);
 
     //check if this role belong to this tenant
-    const foundRole = await roleService.findRole(tenant.id as number, role);
-    const tenantUserRole = await this.findUserRole(
+    const foundRole = await roleService.findRole(tenant.id as number, roleSlug);
+    const userRole = await this.findUserRole(
       tenant.id,
       userId,
       foundRole.id as number,
       false
     );
 
-    if (tenantUserRole) {
+    if (userRole) {
       return Promise.reject(
         new UserRoleErrorHandler(
           UserRoleErrorHandler.AlreadyExists
@@ -467,11 +468,11 @@ export class TenantService implements ITenantService {
   }
 
   /**
-   *  Get user with it's permissions
+   *  Get user has permissions
    * @param userId
    * @param permission
    */
-  public async userPermissions(payload: userHasPermission): Promise<boolean> {
+  public async userHasPermission(payload: userHasPermission): Promise<boolean> {
     const { userId, permission } = payload;
     const userPermissions = await UserRole.findOne({
       where: { userId: userId },

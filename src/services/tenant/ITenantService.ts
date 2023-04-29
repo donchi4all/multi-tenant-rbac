@@ -1,6 +1,7 @@
 import {
   TenantCreationType,
   TenantInterface,
+  TenantUpdatedRequestType,
 } from '../../models/tenant/ITenant';
 import {
   UserRoleCreationType,
@@ -41,8 +42,8 @@ export interface ITenantService {
    * @param _slug
    */
   updateTenant(
-    tenantData: TenantInterface,
     _slug: TenantInterface['slug'],
+    tenantData: TenantUpdatedRequestType
   ): Promise<TenantInterface>;
 
   /**
@@ -59,7 +60,7 @@ export interface ITenantService {
    * @param platformSlug
    * @param _slug
    */
-  assignRoleToTenantUser(
+  assignRoleToUser(
     tenantUserRoleData: UserRoleCreationType
   ): Promise<UserRoleInterface>;
 
@@ -89,18 +90,18 @@ export interface ITenantService {
   ): Promise<UserRoleResponse>;
 
   /**
-   * Get tenant user with it's permissions
+   * Get tenant user has permissions
    * @param userId
    * @param permission
    */
-  userPermissions(payload: userHasPermission): Promise<boolean>;
+  userHasPermission(payload: userHasPermission): Promise<boolean>;
 
   /**
    * Find tenantUsers with Role
    * @param tenantId
    * @param roleSlug
    */
-  findTenantUserByRole(
+  findUserByRole(
     tenantId: UserRoleInterface['tenantId'],
     roleSlug: string
   ): Promise<Array<UserRoleInterface>>;

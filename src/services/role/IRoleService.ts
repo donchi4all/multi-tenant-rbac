@@ -5,7 +5,7 @@ import {
   RoleEditRequestType,
   RoleCreationRequestType,
 } from '../../models/role/IRole';
-import { UserRoleCreationType } from '../../models/user-role/IUserRole';
+import { UserRoleCreationType, UserRoleRequestType } from '../../models/user-role/IUserRole';
 import { RolePermissionCreationType } from '../../models/role-permission/IRolePermission';
 
 export interface IRoleService {
@@ -22,13 +22,13 @@ export interface IRoleService {
   ): Promise<Array<RoleInterface>>;
 
   /**
-   * Sudo Implementation for model findOrCreate (WIP)
+   * Sudo Implementation for model findOrCreateRole (WIP)
    *
    * @param searchParams
    * @param payload
    * @returns
    */
-  findOrCreate?(
+  findOrCreateRole?(
     searchParams: Array<string>,
     payload: RoleCreationType
   ): Promise<Role>;
@@ -81,7 +81,7 @@ export interface IRoleService {
    * Tenant User Role Checker
    * @param payload
    */
-  userHasRole(payload: UserRoleCreationType): Promise<boolean>;
+  userHasRole(payload: UserRoleRequestType): Promise<boolean>;
 
   /**
    * Role has Permission Checker

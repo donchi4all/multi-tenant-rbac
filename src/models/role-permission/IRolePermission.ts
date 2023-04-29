@@ -5,7 +5,7 @@ export interface RolePermissionInterface {
 }
 
 export interface AddPermissionToRoleType {
-  role: string | number;
+  role: string;
   permissions: string | Array<string>;
 }
 

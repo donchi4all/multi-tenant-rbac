@@ -26,6 +26,7 @@ import {
   RolePermissionInterface,
 } from '../../models/role-permission/IRolePermission';
 import tenantService, { UserRoleCreationType } from '../tenant';
+import { UserRoleRequestType } from '../../models/user-role/IUserRole';
 
 
 export { RolePermissionInterface };
@@ -77,13 +78,13 @@ export class RoleService implements IRoleService {
   }
 
   /**
-   * Sudo Implementation for model findOrCreate (WIP)
+   * Sudo Implementation for model findOrCreateRole (WIP)
    *
    * @param searchParams
    * @param payload
    * @returns
    */
-  public async findOrCreate(searchParams: Array<string>, payload: RoleCreationType): Promise<Role> {
+  public async findOrCreateRole(searchParams: Array<string>, payload: RoleCreationType): Promise<Role> {
     const search = searchParams.reduce((result, param) => {
       result[param] = param;
       return result;
@@ -167,13 +168,12 @@ export class RoleService implements IRoleService {
    */
   public async findRole(
     tenantId: RoleInterface['tenantId'],
-    identifier: string | number
+    identifier: string
   ): Promise<Role> {
     try {
       const role = await Role.findOne({
         where: {
           [Op.or]: [
-            { id: identifier },
             { slug: identifier },
             { title: identifier },
           ],
@@ -267,7 +267,6 @@ export class RoleService implements IRoleService {
 
       const permissionIds = await Permission.findAll({
         where: {
-          [Op.or]: [{ id: { [Op.in]: permissions } }],
           [Op.or]: [{ slug: { [Op.in]: permissions } }],
           [Op.or]: [{ title: { [Op.in]: permissions } }],
         },
@@ -335,7 +334,7 @@ export class RoleService implements IRoleService {
    * @param payload
    */
   public async userHasRole(
-    payload: UserRoleCreationType
+    payload: UserRoleRequestType
   ): Promise<boolean> {
     const userRole = await UserRole.findOne({ where: payload });
     if (!userRole) return Promise.resolve(false);
@@ -394,7 +393,7 @@ export class RoleService implements IRoleService {
 
   public async findRoles(
     tenantId: RoleInterface['tenantId'],
-    identifiers: string[] | number[]
+    identifiers: string[]
   ): Promise<Array<Role>> {
     try {
       const roles = await Role.findAll({
