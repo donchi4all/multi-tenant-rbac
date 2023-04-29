@@ -81,7 +81,7 @@ export interface IRoleService {
    * Tenant User Role Checker
    * @param payload
    */
-  tenantUserHasRole(payload: UserRoleCreationType): Promise<boolean>;
+  userHasRole(payload: UserRoleCreationType): Promise<boolean>;
 
   /**
    * Role has Permission Checker

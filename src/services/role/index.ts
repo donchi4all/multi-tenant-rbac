@@ -334,7 +334,7 @@ export class RoleService implements IRoleService {
    * Tenant User Role Checker
    * @param payload
    */
-  public async tenantUserHasRole(
+  public async userHasRole(
     payload: UserRoleCreationType
   ): Promise<boolean> {
     const userRole = await UserRole.findOne({ where: payload });

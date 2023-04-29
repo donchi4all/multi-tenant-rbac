@@ -11,6 +11,6 @@ export interface RoleInterface {
 
 export type RoleCreationType = Pick<RoleInterface, 'tenantId' | 'title' | 'slug' | 'description' | 'isActive'>;
 
-export type RoleCreationRequestType = Pick<RoleInterface, 'title' | 'description' | 'isActive' | 'tenantId'>;
+export type RoleCreationRequestType = Pick<RoleInterface, 'title' | 'description' | 'isActive'>;
 
 export type RoleEditRequestType = RoleCreationRequestType;

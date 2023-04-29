@@ -1,5 +1,5 @@
 
-import cryptoRandomString from 'crypto-random-string';
+// import cryptoRandomString from 'crypto-random-string';
 
 export default class StringsFormating {
   public static snakeToCamel(str: string): string {
@@ -25,9 +25,9 @@ export default class StringsFormating {
     return str.toLowerCase().replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
   }
 
-  public static randomString(length: number = 6): string {
-    return cryptoRandomString({ length });
-  }
+  // public static randomString(length: number = 6): string {
+  //   return cryptoRandomString({ length });
+  // }
 
   public static toBool(value: string): boolean {
     return value === 'true';

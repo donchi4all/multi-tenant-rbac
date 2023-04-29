@@ -89,7 +89,7 @@ export class TenantService implements ITenantService {
    * @param tenantId
    * @param rejectIfNotFound
    */
-  async findTenantById(
+ public async findTenantById(
     tenantId: TenantInterface['id'],
     rejectIfNotFound: boolean = true
   ): Promise<Tenant> {
@@ -112,7 +112,7 @@ export class TenantService implements ITenantService {
   }
 
   /**
-   * Create Tenant in a platform
+   * Create Tenant 
    * @param tenantData
    * @param returnIfFound
    */
@@ -370,7 +370,7 @@ export class TenantService implements ITenantService {
    * @param rejectIfNotFound
    */
 
-  public async getTenantUserPermissions(tenantId: number, userId: number): Promise<UserPermissionResponse> {
+  public async getUserPermissions(tenantId: number, userId: number): Promise<UserPermissionResponse> {
     const userRole = await UserRole.findOne({
       where: {
         tenantId,
@@ -518,7 +518,7 @@ export class TenantService implements ITenantService {
     }
   }
 
-  public async findTenantUserByRole(
+  public async findUserByRole(
     tenantId: UserRoleInterface['tenantId'],
     roleSlug: string
   ): Promise<Array<UserRoleInterface>> {

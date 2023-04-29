@@ -48,6 +48,7 @@ export class Database {
         pool: { max: 1 },
         models: Object.values(Models),
         logging: false,
+        dialect: 'mysql'
       });
       this.log.info('Sequelize ORM with mariaDb has been created successfully.');
 
@@ -67,6 +68,13 @@ export class Database {
     return mongoose.connection;
   }
 
+  public getSequelize() {
+    return this.sequelize;
+  }
 }
 
-export default new Database()
+
+const database = new Database;
+
+export default database;
+export const sequelize = database.getSequelize();
