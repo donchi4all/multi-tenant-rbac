@@ -16,7 +16,7 @@ import {
 } from 'sequelize-typescript';
 import { StringsFormating as Str } from '../../utils';
 import { RoleInterface, RoleCreationType } from './IRole';
-import { Permission, RolePermission, Tenant } from '../index';
+import { Permission, RolePermission, Tenant, UserRole } from '../index';
 
 @Table({
   tableName: 'roles',
@@ -41,17 +41,17 @@ export class Role extends Model<RoleInterface, RoleCreationType> {
   tenantId!: RoleInterface['tenantId'];
 
   @HasMany(() => RolePermission)
-  rolePermissions!: RolePermission[];
+  rolePermissions?: RolePermission[];
 
 
-  @BelongsToMany(() => Permission, {
-    through: {
-      model: () => RolePermission,
-    },
-    foreignKey: 'roleId',
-    foreignKeyConstraint: false,
-  })
-  permission!: Permission[];
+  // @BelongsToMany(() => Permission, {
+  //   through: {
+  //     model: () => RolePermission,
+  //   },
+  //   foreignKey: 'roleId',
+  //   foreignKeyConstraint: false,
+  // })
+  // permissions!: Permission[];
 
   @Unique(true)
   @Column(DataType.STRING)
@@ -85,4 +85,8 @@ export class Role extends Model<RoleInterface, RoleCreationType> {
     defaultValue: DataType.NOW,
   })
   updatedAt!: RoleInterface['updatedAt'];
+
+  @BelongsToMany(() => Permission, () => RolePermission)
+  permissions?: Permission[];
+
 }

@@ -50,7 +50,7 @@ export interface ITenantService {
    * Get Tenant Roles and Permission
    * @param _slug
    */
-  getTenantWithRoleAndPermissions(
+  getTenantWithRolesAndPermissions(
     _slug: TenantInterface['slug']
   ): Promise<unknown>;
 

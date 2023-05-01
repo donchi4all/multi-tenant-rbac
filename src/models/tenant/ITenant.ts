@@ -1,3 +1,5 @@
+import { RoleInterface, RoleType } from "../role/IRole";
+
 export interface TenantInterface {
   id?: number;
   name: string;
@@ -6,6 +8,7 @@ export interface TenantInterface {
   isActive?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
+  roles?: RoleType[];
 }
 
 export type TenantCreationType = Pick<

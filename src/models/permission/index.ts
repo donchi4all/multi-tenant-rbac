@@ -14,7 +14,7 @@ export class Permission extends Model<PermissionInterface, PermissionCreationTyp
   id: PermissionInterface['id'];
 
   @BelongsToMany(() => Role, () => RolePermission)
-  roles!: Role[]
+  roles?: Role[]
 
   @Column(DataType.STRING)
   title!: PermissionInterface['title'];

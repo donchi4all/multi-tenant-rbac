@@ -4,8 +4,8 @@ export interface PermissionInterface {
   slug: string;
   description?: string;
   isActive: boolean;
-  createdAt: Date,
-  updatedAt: Date;
+  createdAt?: Date,
+  updatedAt?: Date;
 }
 
 export type PermissionCreationType = Pick<

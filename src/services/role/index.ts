@@ -38,10 +38,11 @@ export class RoleService implements IRoleService {
    * @param payload
    * @returns
    */
+
   public async createRole(
     tenantSlug: string,
     payload: RoleCreationRequestType | RoleCreationRequestType[]
-  ): Promise<Array<RoleInterface>> {
+  ): Promise<RoleInterface[]> {
     try {
       if (!Array.isArray(payload)) {
         payload = [payload];
@@ -51,31 +52,31 @@ export class RoleService implements IRoleService {
         false
       );
       if (!tenant) {
-        return Promise.reject(
-          new TenantErrorHandler(TenantErrorHandler.DoesNotExist)
-        );
+        throw new TenantErrorHandler(TenantErrorHandler.DoesNotExist);
       }
       const tenantId: number = tenant.id as number;
-      const role = Promise.all(
-        payload.map(async (payload) => {
+      const roles = await Promise.all(
+        payload.map(async ({ description, isActive, ...payload }) => {
           const [title, slug] = Array(2).fill(payload.title);
-          return await Role.findOrCreate({
+          const [role, created] = await Role.findOrCreate({
             where: { tenantId, slug, title },
             defaults: {
-              ...payload,
-              slug,
               title,
+              slug,
+              description,
+              isActive,
               tenantId,
             },
           });
+          return role.get({ plain: true }) as RoleInterface;
         })
       );
-
-      return role as unknown as Array<RoleInterface>;
+      return roles;
     } catch (err) {
       throw err;
     }
   }
+
 
   /**
    * Sudo Implementation for model findOrCreateRole (WIP)

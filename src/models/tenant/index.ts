@@ -10,11 +10,11 @@ import {
   AllowNull,
   Default,
   Unique,
-  BelongsTo, HasMany,
+  BelongsTo, HasMany, BelongsToMany,
 } from 'sequelize-typescript';
 import { TenantInterface } from './ITenant';
 import { StringsFormating as Str } from '../../utils';
-import { UserRole } from '../index';
+import { Permission, Role, RolePermission, UserRole } from '../index';
 
 @Table({
   tableName: 'tenants',
@@ -38,7 +38,10 @@ export class Tenant extends Model<TenantInterface> {
   slug!: TenantInterface['slug'];
 
   @HasMany(() => UserRole)
-  businessUsers!: UserRole[];
+  userRoles!: UserRole[];
+
+  @HasMany(() => Role)
+  roles!: Role[];
 
 
   @AllowNull
@@ -62,5 +65,8 @@ export class Tenant extends Model<TenantInterface> {
     defaultValue: DataType.NOW,
   })
   updatedAt: TenantInterface['updatedAt'];
+
+  // @BelongsToMany(() => Permission, () => RolePermission)
+  // permissions?: Permission[];
 }
 

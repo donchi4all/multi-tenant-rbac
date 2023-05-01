@@ -24,6 +24,7 @@ import {
   UserRoleStatus,
 } from '../../models/user-role/IUserRole';
 import { PermissionInterface } from '../../models/permission/IPermission';
+import { RoleInterface, RoleType } from '../../models/role/IRole';
 
 export {
   TenantInterface,
@@ -198,12 +199,12 @@ export class TenantService implements ITenantService {
    *
    * @param _slug
    */
-  public async getTenantWithRoleAndPermissions(
+  public async getUserWithRoleAndPermissions(
     tenantSlug: TenantInterface['slug']
-  ): Promise<unknown> {
+  ): Promise<TenantInterface> {
     const tenant = await this.findTenant(tenantSlug);
 
-    return await Tenant.findAll({
+    const tenantWithRoles = await Tenant.findOne({
       where: { id: tenant.id },
       include: [
         {
@@ -212,7 +213,7 @@ export class TenantService implements ITenantService {
           include: [
             {
               model: Role,
-              attributes: ['title', 'slug', 'isActive', 'description'],
+              attributes: ['id', 'title', 'slug', 'isActive', 'description'],
               include: [
                 {
                   model: RolePermission,
@@ -221,7 +222,9 @@ export class TenantService implements ITenantService {
                     {
                       model: Permission,
                       attributes: [
+                        'id',
                         'title',
+                        'slug',
                         'isActive',
                         'description',
                         'createdAt',
@@ -235,7 +238,109 @@ export class TenantService implements ITenantService {
         },
       ],
     });
+
+    if (!tenantWithRoles) {
+      return Promise.reject(
+        new TenantErrorHandler(
+          TenantErrorHandler.DoesNotExist
+        )
+      );
+    }
+
+    const roles = tenantWithRoles.userRoles.map((userRole) => {
+      const role = userRole.role.toJSON() as RoleInterface;
+      const permissions = userRole.role?.rolePermissions?.flatMap((rolePermission) => rolePermission.permissions);
+      role.permissions = permissions?.map(permission => ({ slug: permission.dataValues.slug, title: permission.dataValues.title, isActive: permission.dataValues.isActive, description: permission.dataValues.description }));
+      return role;
+    });
+
+    const { id, name, slug, description, isActive, createdAt, updatedAt } =
+      tenantWithRoles.toJSON();
+
+    return {
+      id,
+      name,
+      slug,
+      description,
+      isActive,
+      createdAt,
+      updatedAt,
+      roles
+    };
   }
+
+
+  public async getTenantWithRolesAndPermissions(tenantSlug: string): Promise<TenantInterface> {
+    const tenant = await this.findTenant(tenantSlug);
+
+    const tenantWithRoles = await Tenant.findOne({
+      where: { id: tenant.id },
+      include: [
+        {
+          model: Role,
+          attributes: ['id', 'title', 'slug', 'isActive', 'description'],
+          include: [
+            {
+              model: RolePermission,
+              attributes: ['id'],
+              include: [
+                {
+                  model: Permission,
+                  attributes: [
+                    'id',
+                    'title',
+                    'slug',
+                    'isActive',
+                    'description',
+                    'createdAt',
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!tenantWithRoles) {
+      throw new TenantErrorHandler(TenantErrorHandler.DoesNotExist);
+    }
+
+    const roles = tenantWithRoles.roles.map((role) => {
+      const permissions = role?.rolePermissions?.flatMap(
+        (rolePermission) => rolePermission.permissions
+      );
+      const rolePermissions = permissions?.map((permission) => ({
+        slug: permission.slug,
+        title: permission.title,
+        isActive: permission.isActive,
+        description: permission.description,
+      }));
+      return {
+        id: role.id,
+        title: role.title,
+        slug: role.slug,
+        isActive: role.isActive,
+        description: role.description,
+        permissions: rolePermissions,
+      };
+    });
+
+    return {
+      id: tenantWithRoles.id,
+      name: tenantWithRoles.name,
+      slug: tenantWithRoles.slug,
+      description: tenantWithRoles.description,
+      isActive: tenantWithRoles.isActive,
+      createdAt: tenantWithRoles.createdAt,
+      updatedAt: tenantWithRoles.updatedAt,
+      roles,
+    };
+  }
+
+
+
+
 
   /**
    * Assign role to Tenant User
@@ -371,7 +476,7 @@ export class TenantService implements ITenantService {
    * @param rejectIfNotFound
    */
 
-  public async getUserPermissions(tenantId: number, userId: number): Promise<UserPermissionResponse> {
+  public async getUserPermissions(tenantId: number, userId: string): Promise<UserPermissionResponse> {
     const userRole = await UserRole.findOne({
       where: {
         tenantId,
@@ -399,7 +504,7 @@ export class TenantService implements ITenantService {
     }
 
     const permissions = userRole.roles.reduce((acc: Array<Record<string, any>>, role) => {
-      role.rolePermissions.forEach((permission) => {
+      role?.rolePermissions?.forEach((permission) => {
         const permissionExists = acc.find((p) => p.id === permission.id);
         if (!permissionExists) {
           acc.push(permission.toJSON());
@@ -448,7 +553,7 @@ export class TenantService implements ITenantService {
 
     const roleAndPermissions = tenantUserRole.map(
       (rolePermission: UserRole) => {
-        rolePermission.role?.permission?.forEach(
+        rolePermission.role?.permissions?.forEach(
           (permission: any) => delete permission.dataValues.RolePermission
         );
 
@@ -456,7 +561,7 @@ export class TenantService implements ITenantService {
           title: rolePermission.role.title,
           slug: rolePermission.role.slug,
           description: rolePermission.role.description,
-          permissions: rolePermission.role.permission,
+          permissions: rolePermission.role.permissions,
         };
       }
     );
