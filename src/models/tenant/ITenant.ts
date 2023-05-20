@@ -1,7 +1,7 @@
 import { RoleInterface, RoleType } from "../role/IRole";
 
 export interface TenantInterface {
-  id?: number;
+  id?: string;
   name: string;
   slug: string;
   description?: string;

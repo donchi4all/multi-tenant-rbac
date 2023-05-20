@@ -5,16 +5,16 @@ module.exports = {
     await queryInterface.createTable('userRoles', {
       id: {
         allowNull: false,
-        autoIncrement: true,
         primaryKey: true,
-        type: Sequelize.INTEGER
+        defaultValue: Sequelize.UUIDV4,
+        type: Sequelize.UUID
       },
       userId: {
         type: Sequelize.STRING,
-        allowNull: false
+        allowNull: false,
       },
       tenantId: {
-        type: Sequelize.INTEGER,
+        type: Sequelize.UUID,
         allowNull: false,
         references: {
           model: 'tenants',
@@ -24,7 +24,7 @@ module.exports = {
         onDelete: 'CASCADE',
       },
       roleId: {
-        type: Sequelize.INTEGER,
+        type: Sequelize.UUID,
         allowNull: false,
         references: {
           model: 'roles',
@@ -46,6 +46,10 @@ module.exports = {
       updatedAt: {
         allowNull: false,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+        type: Sequelize.DATE
+      },
+      deletedAt: {
+        allowNull: true,
         type: Sequelize.DATE
       }
     });
@@ -69,7 +73,7 @@ module.exports = {
       type: 'unique',
       name: 'pk_userRoles',
     });
-    
+
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable('userRoles');

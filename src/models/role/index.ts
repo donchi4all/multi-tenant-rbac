@@ -24,7 +24,7 @@ import { Permission, RolePermission, Tenant, UserRole } from '../index';
 export class Role extends Model<RoleInterface, RoleCreationType> {
   @PrimaryKey
   @AutoIncrement
-  @Column(DataType.INTEGER)
+  @Column(DataType.UUID)
   id: RoleInterface['id'];
 
   @BelongsTo(() => Tenant, {

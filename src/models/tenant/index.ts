@@ -22,7 +22,7 @@ import { Permission, Role, RolePermission, UserRole } from '../index';
 export class Tenant extends Model<TenantInterface> {
   @PrimaryKey
   @AutoIncrement
-  @Column(DataType.INTEGER)
+  @Column(DataType.UUID)
   id!: TenantInterface['id'];
 
   @Column(DataType.STRING)

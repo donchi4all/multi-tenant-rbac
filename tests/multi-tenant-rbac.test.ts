@@ -104,7 +104,7 @@ describe('MultiTenantRBAC', () => {
             description: 'initiator role1'
         });
 
-        const foundRole = await RBAC.findRole(tenant.id as number, 'initiator1');
+        const foundRole = await RBAC.findRole(tenant.id , 'initiator1');
 
         expect(foundRole.title).toEqual('initiator1');
     });
@@ -141,7 +141,7 @@ describe('MultiTenantRBAC', () => {
             description: 'initiator role1'
         });
 
-        await RBAC.syncRoleWithPermissions(tenant.id as number,
+        await RBAC.syncRoleWithPermissions(tenant.id ,
             {
                 role: role[0].slug,
                 permissions: ['create-payment',

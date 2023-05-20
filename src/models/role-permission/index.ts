@@ -22,22 +22,22 @@ import { Permission, Role } from '../index';
 export class RolePermission extends Model<RolePermissionInterface> {
   @PrimaryKey
   @AutoIncrement
-  @Column(DataType.INTEGER)
+  @Column(DataType.UUID)
   id: RolePermissionInterface['id'];
 
   @HasMany(() => Permission, {
     sourceKey: 'permissionId',
-     foreignKey: 'id',
+    foreignKey: 'id',
   })
   permissions!: Permission[];
 
   @AllowNull(false)
-  @Column(DataType.INTEGER)
+  @Column(DataType.UUID)
   @ForeignKey(() => Role)
   roleId!: RolePermissionInterface['roleId'];
 
   @AllowNull(false)
-  @Column(DataType.INTEGER)
+  @Column(DataType.UUID)
   @ForeignKey(() => Permission)
   permissionId!: RolePermissionInterface['permissionId'];
 

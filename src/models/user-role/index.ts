@@ -25,7 +25,7 @@ import { Permission, RolePermission, Role, Tenant } from '../index';
 export class UserRole extends Model<UserRoleInterface> {
   @PrimaryKey
   @AutoIncrement
-  @Column(DataType.INTEGER)
+  @Column(DataType.UUID)
   id: UserRoleInterface['id'];
 
   @Column(DataType.STRING)
@@ -56,12 +56,12 @@ export class UserRole extends Model<UserRoleInterface> {
   permissions!: Permission[];
 
   @AllowNull(false)
-  @Column(DataType.INTEGER)
+  @Column(DataType.UUID)
   @ForeignKey(() => Tenant)
   tenantId!: UserRoleInterface['tenantId'];
 
   @AllowNull(false)
-  @Column(DataType.INTEGER)
+  @Column(DataType.UUID)
   @ForeignKey(() => Role)
   roleId!: UserRoleInterface['roleId'];
 

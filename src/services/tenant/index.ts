@@ -38,12 +38,12 @@ export type UserHasPermissionRequest = {
 };
 
 export type UserRoleResponse = {
-  userId: string | number;
+  userId: string | undefined;
   roles: Array<Record<string, any>>;
 };
 
 export type UserPermissionResponse = {
-  userId: string | number;
+  userId: string;
   permissions: Array<Record<string, any>>;
 };
 
@@ -354,11 +354,11 @@ export class TenantService implements ITenantService {
     const tenant = await this.findTenantById(tenantId);
 
     //check if this role belong to this tenant
-    const foundRole = await roleService.findRole(tenant.id as number, roleSlug);
+    const foundRole = await roleService.findRole(tenant.id, roleSlug);
     const userRole = await this.findUserRole(
       tenant.id,
       userId,
-      foundRole.id as number,
+      foundRole.id,
       false
     );
 
@@ -374,9 +374,9 @@ export class TenantService implements ITenantService {
       const status = UserRoleStatus.ACTIVE;
       return await UserRole.create({
         userId,
-        roleId: foundRole.id as number,
+        roleId: foundRole.id,
         status,
-        tenantId: tenant.id as number,
+        tenantId: tenant.id,
       });
     } catch (err) {
       throw new UserRoleErrorHandler(CommonErrorHandler.Fatal);
@@ -523,8 +523,8 @@ export class TenantService implements ITenantService {
    * @param rejectIfNotFound
    */
   public async getUserRolesAndPermissions(
-    tenantId: string | number,
-    userId: string | number,
+    tenantId: string,
+    userId: string,
     rejectIfNotFound: boolean = true
   ): Promise<UserRoleResponse> {
     const tenantUserRole = await UserRole.findAll({
@@ -607,7 +607,7 @@ export class TenantService implements ITenantService {
         where: { tenantId: tenant.id, userId },
       });
 
-      const roles = await roleService.findRoles(tenant.id as number, role);
+      const roles = await roleService.findRoles(tenant.id, role);
 
       const records: any[] = roles.map((role) => {
         return {
@@ -629,7 +629,7 @@ export class TenantService implements ITenantService {
     roleSlug: string
   ): Promise<Array<UserRoleInterface>> {
     const tenant = await this.findTenantById(tenantId);
-    const role = await roleService.findRoleByName(tenant.id as number, roleSlug);
+    const role = await roleService.findRoleByName(tenant.id, roleSlug);
     const users = await UserRole.findAll({
       where: { tenantId: tenant.id, roleId: role.id, status: 'active' },
     });

@@ -143,7 +143,7 @@ const deleteTenant = await RBAC.deleteTenant(tenant.name);
 To find a role, you can use the `findRole` method:
 
 ```ts
-const foundRole = await RBAC.findRole(findTenant.id as number, 'initiator1');
+const foundRole = await RBAC.findRole(findTenant.id , 'initiator1');
 
 ```
 
@@ -161,7 +161,7 @@ To get a user's roles, you can use the `getUserRole` method:
 ```ts
 // userId should a unique field that will be used to represent it's user
 const userId = 'userId' 
-const getUserRoles = await RBAC.getUserRole(tenant.id as number, userId);
+const getUserRoles = await RBAC.getUserRole(tenant.id , userId);
 
 ```
 
@@ -173,7 +173,7 @@ To assign a role to a user, you can use the `assignRoleToUser` method:
 // userId should a unique field that will be used to represent it's user
 const addUserToRole = await RBAC.assignRoleToUser({
   roleSlug: foundRole.slug,
-  tenantId: findTenant.id as number,
+  tenantId: findTenant.id ,
   userId: 'user123',
 });
 
@@ -187,7 +187,7 @@ To sync a role to a user, you can use the `syncUserWithRole` method:
 
 const syncUserToRole = await RBAC.syncUserWithRole({
   role: ['initiator1', 'initiator2'],
-  tenantId: findTenant.id as number,
+  tenantId: findTenant.id ,
   userId: 'user123',
 });
 
@@ -215,7 +215,7 @@ const findPermissions = await RBAC.findPermission('create-payment');
 You can add a role with a list of permissions using the `addRoleWithPermissions` method.
 
 ```ts
-const addRoleWithPermissions = await RBAC.addRoleWithPermissions(findTenant.id as number, {
+const addRoleWithPermissions = await RBAC.addRoleWithPermissions(findTenant.id , {
   permissions: ['create-payment'],
   role: 'initiator',
 });

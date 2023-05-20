@@ -54,7 +54,7 @@ export class RoleService implements IRoleService {
       if (!tenant) {
         throw new TenantErrorHandler(TenantErrorHandler.DoesNotExist);
       }
-      const tenantId: number = tenant.id as number;
+      const tenantId = tenant.id;
       const roles = await Promise.all(
         payload.map(async ({ description, isActive, ...payload }) => {
           const [title, slug] = Array(2).fill(payload.title);
@@ -260,7 +260,7 @@ export class RoleService implements IRoleService {
       const tenant = await tenantService.findTenantById(
         tenantId
       );
-      const getRole = await this.findRole(tenant.id as number, role);
+      const getRole = await this.findRole(tenant.id, role);
       const roleId = getRole.id;
       if (!Array.isArray(permissions)) {
         permissions = [permissions];

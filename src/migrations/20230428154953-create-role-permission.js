@@ -5,13 +5,13 @@ module.exports = {
     await queryInterface.createTable('rolePermissions', {
       id: {
         allowNull: false,
-        autoIncrement: true,
         primaryKey: true,
-        type: Sequelize.INTEGER
+        defaultValue: Sequelize.UUIDV4,
+        type: Sequelize.UUID
       },
       roleId: {
         allowNull: false,
-        type: Sequelize.INTEGER,
+        type: Sequelize.UUID,
         references: {
           model: 'roles',
           key: 'id'
@@ -21,7 +21,7 @@ module.exports = {
       },
       permissionId: {
         allowNull: false,
-        type: Sequelize.INTEGER,
+        type: Sequelize.UUID,
         references: {
           model: 'permissions',
           key: 'id'
@@ -38,20 +38,24 @@ module.exports = {
         allowNull: false,
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+      },
+      deletedAt: {
+        allowNull: true,
+        type: Sequelize.DATE
       }
     });
 
-     // Add indexes
-     await queryInterface.addIndex('rolePermissions', ['roleId']);
-     await queryInterface.addIndex('rolePermissions', ['permissionId']);
- 
-     // Add unique constraint
-     await queryInterface.addConstraint('rolePermissions', {
-       type: 'unique',
-       fields: ['roleId', 'permissionId'],
-       name: 'role_permission_unique_constraint',
-     });
-   
+    // Add indexes
+    await queryInterface.addIndex('rolePermissions', ['roleId']);
+    await queryInterface.addIndex('rolePermissions', ['permissionId']);
+
+    // Add unique constraint
+    await queryInterface.addConstraint('rolePermissions', {
+      type: 'unique',
+      fields: ['roleId', 'permissionId'],
+      name: 'role_permission_unique_constraint',
+    });
+
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable('rolePermissions');

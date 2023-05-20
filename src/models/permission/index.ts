@@ -10,7 +10,7 @@ import { PermissionInterface, PermissionCreationType } from './IPermission';
 export class Permission extends Model<PermissionInterface, PermissionCreationType> {
   @PrimaryKey
   @AutoIncrement
-  @Column(DataType.INTEGER)
+  @Column(DataType.UUID)
   id: PermissionInterface['id'];
 
   @BelongsToMany(() => Role, () => RolePermission)

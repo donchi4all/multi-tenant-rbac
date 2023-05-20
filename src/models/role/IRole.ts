@@ -1,8 +1,8 @@
 import { PermissionInterface } from "../permission/IPermission";
 
 export interface RoleInterface {
-  id?: number;
-  tenantId: number;
+  id?: string;
+  tenantId: string | undefined;
   title: string;
   slug: string;
   description?: string;

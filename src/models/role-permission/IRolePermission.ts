@@ -1,7 +1,7 @@
 export interface RolePermissionInterface {
-  id?: number | undefined;
-  roleId: number;
-  permissionId: number;
+  id?: string | undefined;
+  roleId: string;
+  permissionId: string;
 }
 
 export interface AddPermissionToRoleType {
