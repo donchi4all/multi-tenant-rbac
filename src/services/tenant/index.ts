@@ -476,7 +476,7 @@ export class TenantService implements ITenantService {
    * @param rejectIfNotFound
    */
 
-  public async getUserPermissions(tenantId: number, userId: string): Promise<UserPermissionResponse> {
+  public async getUserPermissions(tenantId: string, userId: string): Promise<UserPermissionResponse> {
     const userRole = await UserRole.findOne({
       where: {
         tenantId,
