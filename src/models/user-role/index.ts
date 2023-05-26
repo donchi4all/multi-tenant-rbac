@@ -18,6 +18,7 @@ import {
   UserRoleStatus,
 } from './IUserRole';
 import { Permission, RolePermission, Role, Tenant } from '../index';
+import { User } from '../user';
 
 @Table({
   tableName: 'userRoles',
@@ -25,7 +26,10 @@ import { Permission, RolePermission, Role, Tenant } from '../index';
 export class UserRole extends Model<UserRoleInterface> {
   @PrimaryKey
   @AutoIncrement
-  @Column(DataType.UUID)
+  @Column({
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
+  })
   id: UserRoleInterface['id'];
 
   @Column(DataType.STRING)
@@ -38,6 +42,14 @@ export class UserRole extends Model<UserRoleInterface> {
     onDelete: 'CASCADE',
   })
   tenant!: Tenant;
+
+  @BelongsTo(() => User, {
+    foreignKey: 'userId',
+    foreignKeyConstraint: true,
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+  })
+  user!: Tenant;
 
   @BelongsTo(() => Role, {
     foreignKey: 'roleId',

@@ -12,24 +12,24 @@ import {
   Unique,
   BelongsTo, HasMany, BelongsToMany,
 } from 'sequelize-typescript';
-import { TenantInterface } from './ITenant';
 import { StringsFormating as Str } from '../../utils';
 import { Permission, Role, RolePermission, UserRole } from '../index';
+import { UserInterface } from './IUser';
 
 @Table({
-  tableName: 'tenants',
+  tableName: 'users',
 })
-export class Tenant extends Model<TenantInterface> {
+export class User extends Model<UserInterface> {
   @PrimaryKey
   @AutoIncrement
   @Column({
     type: DataType.UUID,
     defaultValue: DataType.UUIDV4,
 })
-  id!: TenantInterface['id'];
+  id!: UserInterface['id'];
 
   @Column(DataType.STRING)
-  name!: TenantInterface['name'];
+  name!: UserInterface['name'];
 
   @Unique
   @Column({
@@ -38,7 +38,7 @@ export class Tenant extends Model<TenantInterface> {
       this.setDataValue('slug', Str.toSlugCase(value));
     },
   })
-  slug!: TenantInterface['slug'];
+  slug!: UserInterface['slug'];
 
   @HasMany(() => UserRole)
   userRoles!: UserRole[];
@@ -49,25 +49,25 @@ export class Tenant extends Model<TenantInterface> {
 
   @AllowNull
   @Column(DataType.STRING)
-  description: TenantInterface['description'];
+  description: UserInterface['description'];
 
   @Default(false)
   @Column(DataType.BOOLEAN)
-  isActive?: TenantInterface['isActive'];
+  isActive?: UserInterface['isActive'];
 
   @CreatedAt
   @Column({
     type: DataType.DATE,
     defaultValue: DataType.NOW,
   })
-  createdAt: TenantInterface['createdAt'];
+  createdAt: UserInterface['createdAt'];
 
   @UpdatedAt
   @Column({
     type: DataType.DATE,
     defaultValue: DataType.NOW,
   })
-  updatedAt: TenantInterface['updatedAt'];
+  updatedAt: UserInterface['updatedAt'];
 
   // @BelongsToMany(() => Permission, () => RolePermission)
   // permissions?: Permission[];

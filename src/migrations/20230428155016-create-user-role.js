@@ -10,8 +10,14 @@ module.exports = {
         type: Sequelize.UUID
       },
       userId: {
-        type: Sequelize.STRING,
+        type: Sequelize.UUID,
         allowNull: false,
+        references: {
+          model: 'users',
+          key: 'id',
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE',
       },
       tenantId: {
         type: Sequelize.UUID,

@@ -1,7 +1,7 @@
 import { Table, AutoIncrement, PrimaryKey, Column, Model, AllowNull, CreatedAt, UpdatedAt, DataType, BelongsToMany } from 'sequelize-typescript';
 
 import { Role, RolePermission } from '..';
-import { StringsFormating as Str} from '../../utils';
+import { StringsFormating as Str } from '../../utils';
 import { PermissionInterface, PermissionCreationType } from './IPermission';
 
 @Table({
@@ -10,7 +10,10 @@ import { PermissionInterface, PermissionCreationType } from './IPermission';
 export class Permission extends Model<PermissionInterface, PermissionCreationType> {
   @PrimaryKey
   @AutoIncrement
-  @Column(DataType.UUID)
+  @Column({
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
+  })
   id: PermissionInterface['id'];
 
   @BelongsToMany(() => Role, () => RolePermission)
@@ -21,7 +24,7 @@ export class Permission extends Model<PermissionInterface, PermissionCreationTyp
 
   @Column({
     type: DataType.STRING,
-        set (value: string): void {
+    set(value: string): void {
       this.setDataValue('slug', Str.toSlugCase(value));
     }
   })

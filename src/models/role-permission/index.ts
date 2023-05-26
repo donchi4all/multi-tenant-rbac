@@ -22,7 +22,10 @@ import { Permission, Role } from '../index';
 export class RolePermission extends Model<RolePermissionInterface> {
   @PrimaryKey
   @AutoIncrement
-  @Column(DataType.UUID)
+  @Column({
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
+})
   id: RolePermissionInterface['id'];
 
   @HasMany(() => Permission, {
