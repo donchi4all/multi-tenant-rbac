@@ -39,7 +39,7 @@ export class Role extends Model<RoleInterface, RoleCreationType> {
   tenant!: Tenant;
 
   @AllowNull(false)
-  @Column(DataType.INTEGER)
+  @Column(DataType.UUID)
   @ForeignKey(() => Tenant)
   tenantId!: RoleInterface['tenantId'];
 
