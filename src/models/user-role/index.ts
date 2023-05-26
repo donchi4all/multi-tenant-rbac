@@ -18,7 +18,6 @@ import {
   UserRoleStatus,
 } from './IUserRole';
 import { Permission, RolePermission, Role, Tenant } from '../index';
-import { User } from '../user';
 
 @Table({
   tableName: 'userRoles',
@@ -42,14 +41,6 @@ export class UserRole extends Model<UserRoleInterface> {
     onDelete: 'CASCADE',
   })
   tenant!: Tenant;
-
-  @BelongsTo(() => User, {
-    foreignKey: 'userId',
-    foreignKeyConstraint: true,
-    onUpdate: 'CASCADE',
-    onDelete: 'CASCADE',
-  })
-  user!: Tenant;
 
   @BelongsTo(() => Role, {
     foreignKey: 'roleId',
