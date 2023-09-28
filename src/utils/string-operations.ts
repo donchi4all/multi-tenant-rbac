@@ -9,6 +9,10 @@ export default class StringsFormating {
     );
   }
 
+  public static toSlugCaseWithUnderscores(str: string) {
+    return str.toLowerCase().trim().replace(/ /g, '_').replace(/[\s_-]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
+  }
+  
   public static ucfirst(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   }

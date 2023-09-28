@@ -43,7 +43,7 @@ export class RoleService implements IRoleService {
   public async createRole(
     tenantSlug: string,
     payload: RoleCreationRequestType | RoleCreationRequestType[],
-    formatSlug: boolean = true
+    slugCase: boolean = true
   ): Promise<RoleInterface[]> {
     try {
       if (!Array.isArray(payload)) {
@@ -58,10 +58,10 @@ export class RoleService implements IRoleService {
       }
       const tenantId = tenant.id;
       const roles = await Promise.all(
-        payload.map(async ({ description, isActive, ...payload }) => {
-          let [title, slug] = Array(2).fill(payload.title);
+        payload.map(async ({ description, isActive, title, ...payload }) => {
 
-          if (formatSlug) slug = Str.toSlugCase(slug);
+          const slug = slugCase ? Str.toSlugCase(title) : Str.toSlugCaseWithUnderscores(title);
+
           const [role, created] = await Role.findOrCreate({
             where: { tenantId, slug, title },
             defaults: {
@@ -119,7 +119,7 @@ export class RoleService implements IRoleService {
     tenantId: string,
     roleId: RoleInterface['id'],
     payload: RoleEditRequestType,
-    formatSlug: boolean = true
+    slugCase: boolean = true
   ): Promise<Role> {
     try {
       const role = await Role.findOne({
@@ -130,10 +130,9 @@ export class RoleService implements IRoleService {
         return Promise.reject(new RoleErrorHandler(RoleErrorHandler.NotExist));
       }
 
-      let [title, slug] = Array(2).fill(payload.title || role.title);
+      const slug = slugCase ? Str.toSlugCase(payload.title) : Str.toSlugCaseWithUnderscores(payload.title);
 
-      if (formatSlug) slug = Str.toSlugCase(slug);
-      await role.update({ ...role, ...payload, title, slug });
+      await role.update({ ...role, ...payload, slug });
 
       return role;
     } catch (err) {

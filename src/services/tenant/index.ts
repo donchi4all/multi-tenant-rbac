@@ -122,7 +122,7 @@ export class TenantService implements ITenantService {
   public async createTenant(
     tenantData: TenantCreationType,
     returnIfFound: boolean = true,
-    formatSlug: boolean = true
+    slugCase: boolean = true
   ): Promise<TenantInterface> {
     try {
       const existingPlatform = await this.findTenant(
@@ -133,12 +133,10 @@ export class TenantService implements ITenantService {
         if (returnIfFound) return existingPlatform;
         throw new TenantErrorHandler(TenantErrorHandler.AlreadyExists);
       }
-      let [name, slug] = Array(2).fill(tenantData.name);
-      if (formatSlug) slug = Str.toSlugCase(slug);
+      const slug = slugCase ? Str.toSlugCase(tenantData.name) : Str.toSlugCaseWithUnderscores(tenantData.name);
 
       const tenant = await Tenant.create({
         ...tenantData,
-        name,
         slug
       });
       return tenant.get();
@@ -182,20 +180,14 @@ export class TenantService implements ITenantService {
   public async updateTenant(
     _slug: TenantInterface['slug'],
     tenantData: TenantUpdatedRequestType,
-    formatSlug: boolean = true
   ): Promise<TenantInterface> {
     const tenant = await this.findTenant(_slug, false);
     if (!tenant) {
       throw new TenantErrorHandler(TenantErrorHandler.DoesNotExist);
     }
 
-    let [name, slug] = Array(2).fill(tenantData.name);
-    if (formatSlug) slug = Str.toSlugCase(slug);
-
     await tenant.update({
       ...tenantData,
-      name,
-      slug,
     });
     return tenant.get();
   }

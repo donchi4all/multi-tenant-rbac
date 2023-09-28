@@ -22,7 +22,7 @@ export class PermissionService implements IPermissionService {
    */
   public async createPermission(
     payload: PermissionCreationRequestType | PermissionCreationRequestType[],
-    formatSlug: boolean = true
+    slugCase: boolean = true
   ): Promise<Array<Permission>> {
     try {
       if (!Array.isArray(payload)) {
@@ -31,10 +31,8 @@ export class PermissionService implements IPermissionService {
 
       const permissions = Promise.all(
         payload.map(async (payload) => {
-          let [title, slug] = Array(2).fill(payload.title);
-
-          if (formatSlug) slug = Str.toSlugCase(slug);
-          return await Permission.create({ ...payload, title, slug });
+          const slug = slugCase ? Str.toSlugCase(payload.title) : Str.toSlugCaseWithUnderscores(payload.title);
+          return await Permission.create({ ...payload, slug });
         })
       );
 
@@ -54,7 +52,7 @@ export class PermissionService implements IPermissionService {
   public async updatePermission(
     permissionId: string,
     payload: PermissionEditRequestType,
-    formatSlug: boolean = true
+    slugCase: boolean = true
   ): Promise<Permission> {
     try {
       const permission = await Permission.findOne({
@@ -67,10 +65,8 @@ export class PermissionService implements IPermissionService {
         );
       }
 
-      let [title, slug] = Array(2).fill(payload.title);
-
-      if (formatSlug) slug = Str.toSlugCase(slug);
-      await permission.update({ ...permission, title, slug });
+      const slug = slugCase ? Str.toSlugCase(payload.title) : Str.toSlugCaseWithUnderscores(payload.title);
+      await permission.update({ ...permission, slug });
 
       return permission;
     } catch (err) {
