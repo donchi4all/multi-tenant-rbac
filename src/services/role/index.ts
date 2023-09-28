@@ -27,6 +27,7 @@ import {
 } from '../../models/role-permission/IRolePermission';
 import tenantService, { UserRoleCreationType } from '../tenant';
 import { UserRoleRequestType } from '../../models/user-role/IUserRole';
+import { StringsFormating as Str } from '../../utils';
 
 
 export { RolePermissionInterface };
@@ -41,7 +42,8 @@ export class RoleService implements IRoleService {
 
   public async createRole(
     tenantSlug: string,
-    payload: RoleCreationRequestType | RoleCreationRequestType[]
+    payload: RoleCreationRequestType | RoleCreationRequestType[],
+    formatSlug: boolean = true
   ): Promise<RoleInterface[]> {
     try {
       if (!Array.isArray(payload)) {
@@ -57,7 +59,9 @@ export class RoleService implements IRoleService {
       const tenantId = tenant.id;
       const roles = await Promise.all(
         payload.map(async ({ description, isActive, ...payload }) => {
-          const [title, slug] = Array(2).fill(payload.title);
+          let [title, slug] = Array(2).fill(payload.title);
+
+          if (formatSlug) slug = Str.toSlugCase(slug);
           const [role, created] = await Role.findOrCreate({
             where: { tenantId, slug, title },
             defaults: {
@@ -114,7 +118,8 @@ export class RoleService implements IRoleService {
   public async updateRole(
     tenantId: string,
     roleId: RoleInterface['id'],
-    payload: RoleEditRequestType
+    payload: RoleEditRequestType,
+    formatSlug: boolean = true
   ): Promise<Role> {
     try {
       const role = await Role.findOne({
@@ -125,7 +130,9 @@ export class RoleService implements IRoleService {
         return Promise.reject(new RoleErrorHandler(RoleErrorHandler.NotExist));
       }
 
-      const [title, slug] = Array(2).fill(payload.title || role.title);
+      let [title, slug] = Array(2).fill(payload.title || role.title);
+
+      if (formatSlug) slug = Str.toSlugCase(slug);
       await role.update({ ...role, ...payload, title, slug });
 
       return role;

@@ -9,10 +9,6 @@ module.exports = {
         defaultValue: Sequelize.UUIDV4,
         type: Sequelize.UUID,
       },
-      // staffID: {
-      //   allowNull: false,
-      //   type: Sequelize.STRING,
-      // },
       email: {
         allowNull: false,
         type: Sequelize.STRING,
@@ -26,11 +22,6 @@ module.exports = {
         type: Sequelize.ENUM('active', 'disable', 'blocked'),
         defaultValue: 'active'
       },
-      // type: {
-      //   allowNull: false,
-      //   type: Sequelize.ENUM('user', 'superadmin', 'admin'),
-      //   defaultValue: 'user'
-      // },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,
@@ -47,11 +38,6 @@ module.exports = {
       }
     });
 
-    // await queryInterface.addConstraint('users', {
-    //   fields: ['staffID', 'email'],
-    //   type: 'unique',
-    //   name: 'users_staffID_email_unique'
-    // });
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable('users');

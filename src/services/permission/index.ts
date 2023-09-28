@@ -11,6 +11,8 @@ import {
   PermissionErrorHandler,
 } from '../../modules/exceptions';
 export { PermissionCreationRequestType, PermissionEditRequestType, Permission };
+import { StringsFormating as Str } from '../../utils';
+
 export class PermissionService implements IPermissionService {
   /**
    * Create a new permission for a platform
@@ -19,7 +21,8 @@ export class PermissionService implements IPermissionService {
    * @returns
    */
   public async createPermission(
-    payload: PermissionCreationRequestType | PermissionCreationRequestType[]
+    payload: PermissionCreationRequestType | PermissionCreationRequestType[],
+    formatSlug: boolean = true
   ): Promise<Array<Permission>> {
     try {
       if (!Array.isArray(payload)) {
@@ -28,7 +31,9 @@ export class PermissionService implements IPermissionService {
 
       const permissions = Promise.all(
         payload.map(async (payload) => {
-          const [title, slug] = Array(2).fill(payload.title);
+          let [title, slug] = Array(2).fill(payload.title);
+
+          if (formatSlug) slug = Str.toSlugCase(slug);
           return await Permission.create({ ...payload, title, slug });
         })
       );
@@ -48,7 +53,8 @@ export class PermissionService implements IPermissionService {
    */
   public async updatePermission(
     permissionId: string,
-    payload: PermissionEditRequestType
+    payload: PermissionEditRequestType,
+    formatSlug: boolean = true
   ): Promise<Permission> {
     try {
       const permission = await Permission.findOne({
@@ -61,7 +67,9 @@ export class PermissionService implements IPermissionService {
         );
       }
 
-      const [title, slug] = Array(2).fill(payload.title);
+      let [title, slug] = Array(2).fill(payload.title);
+
+      if (formatSlug) slug = Str.toSlugCase(slug);
       await permission.update({ ...permission, title, slug });
 
       return permission;

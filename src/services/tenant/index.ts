@@ -25,6 +25,7 @@ import {
 } from '../../models/user-role/IUserRole';
 import { PermissionInterface } from '../../models/permission/IPermission';
 import { RoleInterface, RoleType } from '../../models/role/IRole';
+import { StringsFormating as Str } from '../../utils';
 
 export {
   TenantInterface,
@@ -120,7 +121,8 @@ export class TenantService implements ITenantService {
    */
   public async createTenant(
     tenantData: TenantCreationType,
-    returnIfFound: boolean = true
+    returnIfFound: boolean = true,
+    formatSlug: boolean = true
   ): Promise<TenantInterface> {
     try {
       const existingPlatform = await this.findTenant(
@@ -131,7 +133,8 @@ export class TenantService implements ITenantService {
         if (returnIfFound) return existingPlatform;
         throw new TenantErrorHandler(TenantErrorHandler.AlreadyExists);
       }
-      const [name, slug] = Array(2).fill(tenantData.name);
+      let [name, slug] = Array(2).fill(tenantData.name);
+      if (formatSlug) slug = Str.toSlugCase(slug);
 
       const tenant = await Tenant.create({
         ...tenantData,
@@ -178,14 +181,17 @@ export class TenantService implements ITenantService {
    */
   public async updateTenant(
     _slug: TenantInterface['slug'],
-    tenantData: TenantUpdatedRequestType
+    tenantData: TenantUpdatedRequestType,
+    formatSlug: boolean = true
   ): Promise<TenantInterface> {
     const tenant = await this.findTenant(_slug, false);
     if (!tenant) {
       throw new TenantErrorHandler(TenantErrorHandler.DoesNotExist);
     }
 
-    const [name, slug] = Array(2).fill(tenantData.name);
+    let [name, slug] = Array(2).fill(tenantData.name);
+    if (formatSlug) slug = Str.toSlugCase(slug);
+
     await tenant.update({
       ...tenantData,
       name,
