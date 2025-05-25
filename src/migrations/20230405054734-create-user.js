@@ -2,6 +2,16 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
+
+    const tableExists = await queryInterface.sequelize.query(
+      `SELECT table_name FROM information_schema.tables WHERE table_name = 'users' AND table_schema = 'public';`
+    );
+
+    if (tableExists[0].length > 0) {
+      console.log('🛑 "users" table already exists. Skipping creation.');
+      return;
+    }
+    
     await queryInterface.createTable('users', {
       id: {
         allowNull: false,
