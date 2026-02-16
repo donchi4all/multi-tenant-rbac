@@ -1,4 +1,12 @@
 import { createRbac } from './helpers/createRbac';
+import { IRbacAdapter } from '../src/core/types';
+import InMemoryAdapter from '../src/adapters/memory';
+
+class ThrowFindOneAdapter extends InMemoryAdapter implements IRbacAdapter {
+  async findOne(): Promise<Record<string, any> | null> {
+    throw new Error('Unknown column workspaceId in where clause');
+  }
+}
 
 describe('RBAC edge cases', () => {
   it('covers tenant edge conditions', async () => {
@@ -79,5 +87,21 @@ describe('RBAC edge cases', () => {
     await expect(
       rbac.assignRoleToUser({ tenantId: tenant.id, userId: 'u1', roleSlug: role.slug })
     ).rejects.toBeTruthy();
+  });
+
+  it('returns understandable fatal errors with context', async () => {
+    const rbac = await createRbac({}, new ThrowFindOneAdapter());
+
+    await expect(rbac.findTenant('acme')).rejects.toMatchObject({
+      code: 'FATAL',
+      status: 500,
+      message: expect.stringContaining('findTenant failed on "tenants"'),
+    });
+
+    await expect(rbac.findTenantById('tenant-1')).rejects.toMatchObject({
+      code: 'FATAL',
+      status: 500,
+      message: expect.stringContaining('Unknown column workspaceId'),
+    });
   });
 });
