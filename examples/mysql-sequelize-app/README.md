@@ -38,3 +38,5 @@ If you get `TenantErrorHandler: Fatal error` on advanced startup, your mapped te
 
 RBAC expects tenant/role/permission base fields (for example `name`, `slug`, `title`, `isActive`) plus mapped FK keys.  
 The advanced example now uses `rbac_*_v2` table names to avoid collisions with legacy tables.
+
+`sync: true` in this package now uses safe sync behavior (`alter: true`, `force: false`) so existing mapped tables are altered for missing columns instead of being dropped/recreated.

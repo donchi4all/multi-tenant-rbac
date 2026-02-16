@@ -26,3 +26,9 @@ Each folder here is a standalone parent project that integrates `multi-tenant-rb
 3. install dependencies: `npm install`
 4. set env vars from `.env` in your shell (or use your own env loader)
 5. run: `npm run start`
+
+## Advanced runs
+
+- MySQL: `npm run start:advanced`
+- PostgreSQL: `npm run start:advanced`
+- MongoDB: `npm run start:advanced`

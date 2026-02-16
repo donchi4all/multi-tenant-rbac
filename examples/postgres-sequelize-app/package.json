@@ -5,6 +5,7 @@
   "description": "Standalone parent project integrating multi-tenant-rbac with Sequelize + PostgreSQL",
   "scripts": {
     "start": "ts-node src/app.ts",
+    "start:advanced": "ts-node src/app.advanced-schema.ts",
     "build": "tsc"
   },
   "dependencies": {

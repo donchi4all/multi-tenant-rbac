@@ -8,7 +8,7 @@ async function bootstrap() {
       dialect: 'mysql',
       host: process.env.MYSQL_HOST || '127.0.0.1',
       port: Number(process.env.MYSQL_PORT || 3306),
-      database: process.env.MYSQL_DATABASE || 'rbac_example',
+      database: process.env.MYSQL_DATABASE || 'rbac_example1',
       username: process.env.MYSQL_USERNAME || 'root',
       password: process.env.MYSQL_PASSWORD || 'password',
       logging: false,

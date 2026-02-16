@@ -53,7 +53,7 @@ async function bootstrap() {
   });
 
   const permissions = await rbac.listEffectivePermissions(tenant.id, 'mongo-user-1');
-  console.log({ tenant: tenant.slug, permissions: permissions.map((p) => p.title) });
+  console.log({ tenant: tenant.slug, permissions: permissions.map((p: any) => p.title) });
 
   await mongoose.disconnect();
 }

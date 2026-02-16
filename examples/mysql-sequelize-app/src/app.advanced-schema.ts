@@ -15,6 +15,10 @@ async function bootstrapAdvancedSchema() {
       password: process.env.MYSQL_PASSWORD || 'password',
       logging: false,
       sync: true,
+      syncOptions: {
+        alter: true,
+        force: false,
+      },
     },
     // Map RBAC entities to existing table names in your parent project.
     // Use distinct names here to avoid clashing with pre-existing tables that
