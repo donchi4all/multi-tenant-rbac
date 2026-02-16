@@ -1,80 +1,121 @@
-import mongoose from 'mongoose'
-import { LoggerDecorator, LoggerInterface } from '../logger'
-import { Repository, Sequelize, Model } from 'sequelize-typescript';
-import * as Models from '../../models';
+import { LoggerDecorator, LoggerInterface } from '../logger';
+import {
+  AdapterTransactionCallback,
+  IRbacAdapter,
+  MongodbConfig,
+  RbacResolvedConfig,
+  rbacConfig,
+  resolveRbacConfig,
+} from '../../core/types';
+import LegacyMongooseAdapter from '../../adapters/legacy/mongoose';
+import SequelizeAdapter from '../../adapters/sequelize';
 
-
-interface MysqlConfig {
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-  database: string;
-}
-
-
-export interface MongodbConfig {
-  url: string,
-  useNewUrlParser: boolean,
-  useFindAndModify: boolean,
-  useCreateIndex: boolean,
-  useUnifiedTopology: boolean,
-}
-
-
-export type rbacConfig = {
-  dialect: 'mysql' | 'mongodb';
-  mysqlConfig?: MysqlConfig;
-  mongodbConfig?: MongodbConfig;
-}
-
+export { MongodbConfig, rbacConfig };
 
 export class Database {
   @LoggerDecorator('Database')
   private log!: LoggerInterface;
-  private sequelize!: Sequelize;
+  private config?: RbacResolvedConfig;
 
   public async init(config: rbacConfig): Promise<void> {
+    const withDefaultAdapter = this.withLegacyAdapterFallback(config);
+    const resolved = resolveRbacConfig(withDefaultAdapter);
 
-    if (config.dialect === 'mongodb' && config.mongodbConfig) {
-      const { url } = config.mongodbConfig
-      await this.connect(url)
-      mongoose.connection.on('disconnected', this.connect.bind(this, url))
-      this.log.info(`Successfully connected to ${url}`)
-    } else if (config.dialect === 'mysql' && config.mysqlConfig) {
-      const { mysqlConfig } = config
-      this.sequelize = new Sequelize({
-        ...mysqlConfig,
-        pool: { max: 1 },
-        models: Object.values(Models),
-        logging: false,
-        dialect: 'mysql'
-      });
-      this.log.info('Sequelize ORM with mariaDb has been created successfully.');
-
-    }
+    this.config = resolved;
+    await resolved.adapter.init?.(resolved);
+    this.log.info('RBAC adapter has been initialized successfully.');
   }
 
-  async connect(url: string) {
-    try {
-      await mongoose.connect(url)
-    } catch (error) {
-      this.log.error(`Error connecting to database: ${error}`)
-      throw error
+  private withLegacyAdapterFallback(config: rbacConfig): rbacConfig {
+    if (config.adapter) return config;
+
+    if (config.sequelizeConfig) {
+      return { ...config, adapter: new SequelizeAdapter(config.sequelizeConfig) };
     }
+
+    if (config.dialect === 'mysql') {
+      if (!config.mysqlConfig) {
+        throw new Error('mysqlConfig is required when dialect is mysql.');
+      }
+      return {
+        ...config,
+        adapter: new SequelizeAdapter({
+          dialect: 'mysql',
+          ...config.mysqlConfig,
+        }),
+      };
+    }
+
+    if (config.dialect === 'postgres') {
+      if (!config.postgresConfig) {
+        throw new Error('postgresConfig is required when dialect is postgres.');
+      }
+      return {
+        ...config,
+        adapter: new SequelizeAdapter({
+          dialect: 'postgres',
+          ...config.postgresConfig,
+        }),
+      };
+    }
+
+    if (config.dialect === 'mongodb') {
+      // Backward compatibility: existing mongodb users can keep old config shape.
+      return { ...config, adapter: new LegacyMongooseAdapter() };
+    }
+
+    throw new Error(
+      'RBAC adapter is required. Provide config.adapter, or use legacy dialect + connection config.'
+    );
+  }
+
+  public getAdapter(): IRbacAdapter {
+    if (!this.config) {
+      throw new Error('RBAC is not initialized. Call init(config) first.');
+    }
+
+    return this.config.adapter;
+  }
+
+  public getConfig(): RbacResolvedConfig {
+    if (!this.config) {
+      throw new Error('RBAC is not initialized. Call init(config) first.');
+    }
+
+    return this.config;
+  }
+
+  /**
+   * Runs an operation in adapter transaction when supported.
+   * Falls back to direct execution when adapter has no transaction API.
+   */
+  public async withTransaction<T>(callback: AdapterTransactionCallback<T>): Promise<T> {
+    const adapter = this.getAdapter();
+
+    if (adapter.withTransaction) {
+      return adapter.withTransaction(callback);
+    }
+
+    if (adapter.beginTransaction && adapter.commitTransaction && adapter.rollbackTransaction) {
+      const tx = await adapter.beginTransaction();
+      try {
+        const result = await callback(tx);
+        await adapter.commitTransaction(tx);
+        return result;
+      } catch (error) {
+        await adapter.rollbackTransaction(tx);
+        throw error;
+      }
+    }
+
+    return callback(undefined);
   }
 
   static connection() {
-    return mongoose.connection;
-  }
-
-  public getSequelize() {
-    return this.sequelize;
+    return null;
   }
 }
 
-
-const database = new Database;
+const database = new Database();
 
 export default database;
-export const sequelize = database.getSequelize();

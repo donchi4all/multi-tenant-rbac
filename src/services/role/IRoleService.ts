@@ -1,91 +1,76 @@
-import { Role } from '../../models';
 import {
   RoleInterface,
   RoleCreationType,
   RoleEditRequestType,
   RoleCreationRequestType,
 } from '../../models/role/IRole';
-import { UserRoleCreationType, UserRoleRequestType } from '../../models/user-role/IUserRole';
-import { RolePermissionCreationType } from '../../models/role-permission/IRolePermission';
+import { UserRoleRequestType } from '../../models/user-role/IUserRole';
+import {
+  RolePermissionCreationType,
+  RolePermissionInterface,
+} from '../../models/role-permission/IRolePermission';
 
 export interface IRoleService {
-  /**
-   * Creates a new role
-   *
-   * @param payload
-   * @param tenant
-   * @returns
-   */
+  /** Create role(s) for a tenant identified by slug/name. */
   createRole(
-    tenantId: string,
-    payload: RoleCreationRequestType | RoleCreationRequestType[]
+    tenantSlug: string,
+    payload: RoleCreationRequestType | RoleCreationRequestType[],
+    slugCase?: boolean
   ): Promise<Array<RoleInterface>>;
 
-  /**
-   * Sudo Implementation for model findOrCreateRole (WIP)
-   *
-   * @param searchParams
-   * @param payload
-   * @returns
-   */
+  /** Find one role by arbitrary fields or create when missing. */
   findOrCreateRole?(
     searchParams: Array<string>,
     payload: RoleCreationType
-  ): Promise<Role>;
+  ): Promise<RoleInterface>;
 
-  /**
-   * Update an existing role
-   *
-   * @param roleId
-   * @param payload
-   * @returns
-   */
+  /** Update a role in a tenant context. */
   updateRole(
     tenantId: string,
     roleId: RoleInterface['id'],
-    payload: RoleEditRequestType
-  ): Promise<Role>;
+    payload: RoleEditRequestType,
+    slugCase?: boolean
+  ): Promise<RoleInterface>;
 
-  /**
-   * Fetch list of roles
-   *
-   * @returns
-   */
-  listRoles(
-    tenantId: RoleInterface['tenantId']
-  ): Promise<Array<Role>>;
+  /** List roles for a tenant. */
+  listRoles(tenantId: RoleInterface['tenantId']): Promise<Array<RoleInterface>>;
 
-  /**
-   * Find an existing role
-   *
-   * @param identifier
-   * @returns
-   */
+  /** Find role by slug/title in a tenant context. */
   findRole(
     tenantId: RoleInterface['tenantId'],
     identifier: string
-  ): Promise<Role>;
+  ): Promise<RoleInterface>;
 
-  /**
-   * Delete an existing role
-   *
-   * @param roleId
-   * @returns
-   */
+  /** Delete role by id in tenant context. */
   deleteRole(
     tenantId: RoleInterface['tenantId'],
     roleId: RoleInterface['id']
   ): Promise<void>;
 
-  /**
-   * Tenant User Role Checker
-   * @param payload
-   */
+  /** Check if user has a role inside a tenant. */
   userHasRole(payload: UserRoleRequestType): Promise<boolean>;
 
-  /**
-   * Role has Permission Checker
-   * @param payload
-   */
+  /** Check if role has permission relation. */
   roleHasPermission(payload: RolePermissionCreationType): Promise<boolean>;
+
+  /** Upsert a single role by title/slug in tenant scope. */
+  upsertRole(
+    tenantSlug: string,
+    payload: RoleCreationRequestType,
+    slugCase?: boolean
+  ): Promise<RoleInterface>;
+
+  /** Grant permission(s) to role in tenant scope. */
+  grantPermissionsToRole(
+    tenantId: RoleInterface['tenantId'],
+    role: string,
+    permissions: string[]
+  ): Promise<Array<RolePermissionInterface>>;
+
+  /** Revoke permission(s) from role in tenant scope. */
+  revokePermissionsFromRole(
+    tenantId: RoleInterface['tenantId'],
+    role: string,
+    permissions: string[]
+  ): Promise<number>;
 }

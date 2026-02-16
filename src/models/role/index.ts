@@ -11,7 +11,6 @@ import {
   BelongsTo,
   HasMany,
   BelongsToMany,
-  Unique,
   ForeignKey,
 } from 'sequelize-typescript';
 import { StringsFormating as Str } from '../../utils';
@@ -56,7 +55,6 @@ export class Role extends Model<RoleInterface, RoleCreationType> {
   // })
   // permissions!: Permission[];
 
-  @Unique(true)
   @Column(DataType.STRING)
   title!: RoleInterface['title'];
 

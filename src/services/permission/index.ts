@@ -1,166 +1,198 @@
-import { Op } from 'sequelize';
-import { Permission } from '../../models';
 import {
   PermissionCreationRequestType,
   PermissionEditRequestType,
   PermissionInterface,
 } from '../../models/permission/IPermission';
 import { IPermissionService } from './IPermissionService';
-import {
-  CommonErrorHandler,
-  PermissionErrorHandler,
-} from '../../modules/exceptions';
-export { PermissionCreationRequestType, PermissionEditRequestType, Permission };
+import { PermissionErrorHandler } from '../../modules/exceptions';
 import { StringsFormating as Str } from '../../utils';
+import Database from '../../modules/database';
+import AuditTrail from '../../modules/audit';
+import { assertNonEmptyString } from '../../modules/validation';
+
+export { PermissionCreationRequestType, PermissionEditRequestType };
 
 export class PermissionService implements IPermissionService {
+  private getPermissionContext() {
+    return Database.getConfig();
+  }
+
   /**
-   * Create a new permission for a platform
-   *
-   * @param payload
-   * @returns
+   * Creates one or many permissions using configured model name.
    */
   public async createPermission(
     payload: PermissionCreationRequestType | PermissionCreationRequestType[],
     slugCase: boolean = true
-  ): Promise<Array<Permission>> {
-    try {
-      if (!Array.isArray(payload)) {
-        payload = [payload];
-      }
+  ): Promise<Array<PermissionInterface>> {
+    const { adapter, models } = this.getPermissionContext();
+    const items = Array.isArray(payload) ? payload : [payload];
 
-      const permissions = Promise.all(
-        payload.map(async (payload) => {
-          const slug = slugCase ? Str.toSlugCase(payload.title) : Str.toSlugCaseWithUnderscores(payload.title);
-          return await Permission.create({ ...payload, slug });
+    const records = await Promise.all(
+      items.map(async (item) => {
+        assertNonEmptyString(item.title, 'permission.title');
+        const slug = slugCase
+          ? Str.toSlugCase(item.title)
+          : Str.toSlugCaseWithUnderscores(item.title);
+
+        return adapter.create(models.permissions, {
+          ...item,
+          slug,
+        });
+      })
+    );
+
+    await Promise.all(
+      records.map((record) =>
+        AuditTrail.emit({
+          action: 'permission.create',
+          model: models.permissions,
+          recordId: String(record.id),
+          after: record as Record<string, any>,
         })
-      );
+      )
+    );
 
-      return permissions;
-    } catch (err) {
-      throw new PermissionErrorHandler(PermissionErrorHandler.FailedToCreate);
-    }
+    return records as PermissionInterface[];
   }
 
-  /**
-   * Update an existing permission
-   *
-   * @param permissionId
-   * @param payload
-   * @returns
-   */
   public async updatePermission(
     permissionId: string,
     payload: PermissionEditRequestType,
     slugCase: boolean = true
-  ): Promise<Permission> {
-    try {
-      const permission = await Permission.findOne({
-        where: { id: permissionId },
-      });
+  ): Promise<PermissionInterface> {
+    const { adapter, models } = this.getPermissionContext();
+    assertNonEmptyString(permissionId, 'permissionId');
 
-      if (!permission) {
-        return Promise.reject(
-          new PermissionErrorHandler(PermissionErrorHandler.NotExist)
-        );
-      }
+    const existing = await adapter.findOne(models.permissions, {
+      where: { id: permissionId },
+    });
 
-      const slug = slugCase ? Str.toSlugCase(payload.title) : Str.toSlugCaseWithUnderscores(payload.title);
-      await permission.update({ ...permission, slug });
-
-      return permission;
-    } catch (err) {
-      throw err;
+    if (!existing) {
+      throw new PermissionErrorHandler(PermissionErrorHandler.NotExist);
     }
+
+    const slug = slugCase
+      ? Str.toSlugCase(payload.title)
+      : Str.toSlugCaseWithUnderscores(payload.title);
+
+    const updated = await adapter.update(
+      models.permissions,
+      { id: permissionId },
+      { ...payload, slug }
+    );
+
+    const result = (updated || existing) as PermissionInterface;
+    await AuditTrail.emit({
+      action: 'permission.update',
+      model: models.permissions,
+      recordId: String(result.id),
+      before: existing as Record<string, any>,
+      after: result as Record<string, any>,
+    });
+    return result;
   }
 
-  /**
-   * List all permissions tied to a tenant
-   *
-   * @returns
-   */
-  public async listPermissions(): Promise<Array<Permission>> {
-    try {
-      return await Permission.findAll({
-        where: { isActive: true }
-      });
-    } catch (err) {
-      throw err;
-    }
+  public async listPermissions(): Promise<Array<PermissionInterface>> {
+    const { adapter, models } = this.getPermissionContext();
+    const permissions = await adapter.findMany(models.permissions, {
+      where: { isActive: true },
+    });
+    return permissions as PermissionInterface[];
   }
 
-  /**
-   * Find an existing permission
-   * identifier can be slug or title
-   * @param identifier
-   * @returns
-   */
-  public async findPermission(identifier: string): Promise<Permission> {
-    try {
-      const permission = await Permission.findOne({
-        where: {
-          [Op.or]: [{ slug: identifier }, { title: identifier }],
-          [Op.and]: [{ isActive: true }]
-        },
-      });
+  public async findPermission(identifier: string): Promise<PermissionInterface> {
+    const { adapter, models } = this.getPermissionContext();
 
-      if (!permission) {
-        return Promise.reject(
-          new PermissionErrorHandler(PermissionErrorHandler.NotExist)
-        );
-      }
+    const bySlug = await adapter.findOne(models.permissions, {
+      where: { slug: identifier, isActive: true },
+    });
 
-      return permission;
-    } catch (err) {
-      throw err;
+    if (bySlug) return bySlug as PermissionInterface;
+
+    const byTitle = await adapter.findOne(models.permissions, {
+      where: { title: identifier, isActive: true },
+    });
+
+    if (!byTitle) {
+      throw new PermissionErrorHandler(PermissionErrorHandler.NotExist);
     }
+
+    return byTitle as PermissionInterface;
   }
 
-  /**
-   * Delete an existing permission
-   * identifier can be slug or title
-   * @param identifier
-   * @returns
-   */
   public async deletePermission(identifier: string): Promise<void> {
-    try {
-      const permission = await this.findPermission(identifier);
-      await permission.destroy();
-
-      return;
-    } catch (err) {
-      throw err;
-    }
+    const { adapter, models } = this.getPermissionContext();
+    assertNonEmptyString(identifier, 'identifier');
+    const permission = await this.findPermission(identifier);
+    await adapter.delete(models.permissions, { id: permission.id });
+    await AuditTrail.emit({
+      action: 'permission.delete',
+      model: models.permissions,
+      recordId: String(permission.id),
+      before: permission as Record<string, any>,
+    });
   }
 
-  /**
-   * Find Permission By ID
-   *
-   * @param permissionId
-   * @param rejectIfNotFound
-   */
   public async findPermissionById(
     permissionId: PermissionInterface['id'],
     rejectIfNotFound: boolean = true
-  ): Promise<Permission> {
-    try {
-      const permission = await Permission.findOne({
-        where: {
-          id: permissionId,
-          isActive: true,
-        },
-      });
-      if (!permission && rejectIfNotFound) {
-        return Promise.reject(
-          new PermissionErrorHandler(
-            PermissionErrorHandler.PermissionDoNotExist
-          )
-        );
-      }
-      return permission!;
-    } catch (e) {
-      throw e;
+  ): Promise<PermissionInterface> {
+    const { adapter, models } = this.getPermissionContext();
+
+    const permission = await adapter.findOne(models.permissions, {
+      where: {
+        id: permissionId,
+        isActive: true,
+      },
+    });
+
+    if (!permission && rejectIfNotFound) {
+      throw new PermissionErrorHandler(PermissionErrorHandler.PermissionDoNotExist);
     }
+
+    return permission as PermissionInterface;
+  }
+
+  public async upsertPermission(
+    payload: PermissionCreationRequestType,
+    slugCase: boolean = true
+  ): Promise<PermissionInterface> {
+    const { adapter, models } = this.getPermissionContext();
+    assertNonEmptyString(payload.title, 'permission.title');
+
+    const slug = slugCase
+      ? Str.toSlugCase(payload.title)
+      : Str.toSlugCaseWithUnderscores(payload.title);
+
+    const existing =
+      (await adapter.findOne(models.permissions, { where: { slug } })) ||
+      (await adapter.findOne(models.permissions, { where: { title: payload.title } }));
+
+    if (existing) {
+      return existing as PermissionInterface;
+    }
+
+    const [created] = await this.createPermission(
+      [
+        {
+          ...payload,
+        },
+      ],
+      slugCase
+    );
+
+    return created;
+  }
+
+  public async ensurePermissions(
+    payload: PermissionCreationRequestType[],
+    slugCase: boolean = true
+  ): Promise<Array<PermissionInterface>> {
+    const items = Array.isArray(payload) ? payload : [payload];
+    const result = await Promise.all(
+      items.map((item) => this.upsertPermission(item, slugCase))
+    );
+    return result;
   }
 }
 

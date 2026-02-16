@@ -1,12 +1,16 @@
 {
   "name": "multi-tenant-rbac",
-  "version": "1.2.3",
+  "version": "2.0.0",
   "description": "multi-tenant-rbac is a Node.js package that provides a role-based access control (RBAC) system for multi-tenant applications. It allows you to manage roles and permissions at the tenant level, so each tenant can have its own set of roles and permissions",
   "main": "donsoft/src/index.js",
   "types": "donsoft/src/index.d.ts",
+  "bin": {
+    "rbac": "donsoft/src/cli/rbac.js"
+  },
   "scripts": {
     "build": "tsc",
-    "test": "jest --watchAll --coverage",
+    "test": "jest --coverage",
+    "test:ci": "jest --coverage --runInBand",
     "db-migrate": "node ./node_modules/.bin/sequelize-cli db:migrate",
     "prepublish": "tsc"
   },
@@ -30,15 +34,28 @@
   "homepage": "https://github.com/donchi4all/multi-tenant-rbac#readme",
   "dependencies": {
     "@types/reflect-metadata": "^0.1.0",
-    "body-parser": "^1.19.0",
-    "dotenv": "^8.2.0",
-    "errorhandler": "^1.5.1",
+    "reflect-metadata": "^0.1.13",
+    "winston": "^3.3.3"
+  },
+  "peerDependencies": {
     "mongoose": "^7.1.0",
     "mysql2": "^3.2.4",
-    "reflect-metadata": "^0.1.13",
     "sequelize": "^6.31.0",
-    "sequelize-typescript": "^2.1.5",
-    "winston": "^3.3.3"
+    "sequelize-typescript": "^2.1.5"
+  },
+  "peerDependenciesMeta": {
+    "mongoose": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    },
+    "sequelize": {
+      "optional": true
+    },
+    "sequelize-typescript": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/eslint": "^7.2.6",

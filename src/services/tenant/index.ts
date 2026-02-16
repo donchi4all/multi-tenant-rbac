@@ -6,14 +6,6 @@ import {
 } from '../../models/tenant/ITenant';
 import roleService from '../../services/role';
 import {
-  Tenant,
-  UserRole,
-  Permission,
-  Role,
-  RolePermission,
-} from '../../models';
-import { Op } from 'sequelize';
-import {
   TenantErrorHandler,
   UserRoleErrorHandler,
   CommonErrorHandler,
@@ -24,14 +16,24 @@ import {
   UserRoleStatus,
 } from '../../models/user-role/IUserRole';
 import { PermissionInterface } from '../../models/permission/IPermission';
-import { RoleInterface, RoleType } from '../../models/role/IRole';
+import { RoleInterface } from '../../models/role/IRole';
 import { StringsFormating as Str } from '../../utils';
+import Database from '../../modules/database';
+import AuditTrail from '../../modules/audit';
+import hooks from '../../modules/hooks';
+import {
+  assertArrayHasItems,
+  assertNonEmptyString,
+  normalizeToArray,
+} from '../../modules/validation';
+import TtlCache from '../../modules/cache';
 
 export {
   TenantInterface,
   TenantCreationType,
   UserRoleCreationType,
 };
+
 export type UserHasPermissionRequest = {
   tenantId: UserRoleInterface['tenantId'];
   userId: UserRoleInterface['userId'];
@@ -57,581 +59,622 @@ export type UserRoleSyncType = {
 export type userHasPermission = {
   userId: UserRoleInterface['userId'];
   permission: PermissionInterface['title'];
+  tenantId?: UserRoleInterface['tenantId'];
 };
 
+function uniqueById(items: Array<Record<string, any>>): Array<Record<string, any>> {
+  const map = new Map<string, Record<string, any>>();
+  items.forEach((item) => {
+    if (!item?.id) return;
+    map.set(String(item.id), item);
+  });
+  return [...map.values()];
+}
+
+const effectivePermissionCache = new TtlCache<Array<Record<string, any>>>(60_000);
+
 export class TenantService implements ITenantService {
+  private getTenantContext() {
+    return Database.getConfig();
+  }
+
+  private getPermissionCacheKey(tenantId: string, userId: string): string {
+    return `${tenantId}:${userId}`;
+  }
+
+  private invalidatePermissionCache(tenantId: string, userId: string): void {
+    effectivePermissionCache.delete(this.getPermissionCacheKey(tenantId, userId));
+  }
+
   /**
-   * Find tenant
-   * @param value
-   * @param rejectIfNotFound
+   * Resolves role -> role_permissions -> permissions and returns a normalized role payload.
    */
+  private async hydrateRoleWithPermissions(role: Record<string, any>): Promise<Record<string, any>> {
+    const { adapter, models, keys } = this.getTenantContext();
+
+    const rolePermissions = await adapter.findMany(models.rolePermissions, {
+      where: {
+        [keys.roleId]: role.id,
+      },
+    });
+
+    const permissions = await Promise.all(
+      rolePermissions.map((entry) =>
+        adapter.findOne(models.permissions, {
+          where: {
+            id: entry[keys.permissionId],
+          },
+        })
+      )
+    );
+
+    return {
+      id: role.id,
+      title: role.title,
+      slug: role.slug,
+      isActive: role.isActive,
+      description: role.description,
+      permissions: permissions
+        .filter(Boolean)
+        .map((permission) => ({
+          id: permission!.id,
+          slug: permission!.slug,
+          title: permission!.title,
+          isActive: permission!.isActive,
+          description: permission!.description,
+        })),
+    };
+  }
+
+  /**
+   * Builds tenant role views from user_roles. Useful for user-centric tenant snapshots.
+   */
+  private async getRolesForTenantUsers(tenantId: string): Promise<RoleInterface[]> {
+    const { adapter, models, keys } = this.getTenantContext();
+
+    const userRoles = await adapter.findMany(models.userRoles, {
+      where: {
+        [keys.tenantId]: tenantId,
+      },
+    });
+
+    const roles = await Promise.all(
+      userRoles.map(async (userRole) => {
+        const role = await adapter.findOne(models.roles, {
+          where: {
+            id: userRole[keys.roleId],
+          },
+        });
+
+        return role ? this.hydrateRoleWithPermissions(role) : null;
+      })
+    );
+
+    return roles.filter(Boolean) as RoleInterface[];
+  }
+
+  /**
+   * Builds tenant role views from roles table. Useful for role-centric tenant snapshots.
+   */
+  private async getTenantRoleRecords(tenantId: string): Promise<RoleInterface[]> {
+    const { adapter, models, keys } = this.getTenantContext();
+
+    const roles = await adapter.findMany(models.roles, {
+      where: {
+        [keys.tenantId]: tenantId,
+      },
+    });
+
+    const roleRecords = await Promise.all(roles.map((role) => this.hydrateRoleWithPermissions(role)));
+    return roleRecords as RoleInterface[];
+  }
+
   public async findTenant(
     value: string,
     rejectIfNotFound: boolean = true
-  ): Promise<Tenant> {
+  ): Promise<TenantInterface> {
+    assertNonEmptyString(value, 'tenant value');
+    const { adapter, models } = this.getTenantContext();
+
     try {
-      const tenant = await Tenant.findOne({
+      const tenant =
+        (await adapter.findOne(models.tenants, { where: { slug: value } })) ||
+        (await adapter.findOne(models.tenants, { where: { name: value } }));
+
+      if (!tenant && rejectIfNotFound) {
+        throw new TenantErrorHandler(TenantErrorHandler.DoesNotExist);
+      }
+
+      return tenant as TenantInterface;
+    } catch (err) {
+      throw new TenantErrorHandler(CommonErrorHandler.Fatal);
+    }
+  }
+
+  public async findTenantById(
+    tenantId: TenantInterface['id'],
+    rejectIfNotFound: boolean = true
+  ): Promise<TenantInterface> {
+    const { adapter, models } = this.getTenantContext();
+
+    try {
+      const tenant = await adapter.findOne(models.tenants, {
         where: {
-          [Op.or]: [{ slug: value }, { name: value }],
+          id: tenantId,
         },
       });
 
       if (!tenant && rejectIfNotFound) {
-        return Promise.reject(
-          new TenantErrorHandler(TenantErrorHandler.DoesNotExist)
-        );
+        throw new TenantErrorHandler(TenantErrorHandler.DoesNotExist);
       }
-      return tenant!;
+
+      return tenant as TenantInterface;
     } catch (err) {
       throw new TenantErrorHandler(CommonErrorHandler.Fatal);
     }
   }
 
-  /**
-   * Find tenant by Id
-   * @param tenantId
-   * @param rejectIfNotFound
-   */
-  public async findTenantById(
-    tenantId: TenantInterface['id'],
-    rejectIfNotFound: boolean = true
-  ): Promise<Tenant> {
-    try {
-      const tenant = await Tenant.findOne({
-        where: {
-          id: tenantId
-        }
-      });
-
-      if (!tenant && rejectIfNotFound) {
-        return Promise.reject(
-          new TenantErrorHandler(TenantErrorHandler.DoesNotExist)
-        );
-      }
-      return tenant!;
-    } catch (err) {
-      throw new TenantErrorHandler(CommonErrorHandler.Fatal);
-    }
-  }
-
-  /**
-   * Create Tenant 
-   * @param tenantData
-   * @param returnIfFound
-   */
   public async createTenant(
     tenantData: TenantCreationType,
     returnIfFound: boolean = true,
     slugCase: boolean = true
   ): Promise<TenantInterface> {
-    try {
-      const existingPlatform = await this.findTenant(
-        tenantData.name,
-        false
-      );
-      if (existingPlatform) {
-        if (returnIfFound) return existingPlatform;
-        throw new TenantErrorHandler(TenantErrorHandler.AlreadyExists);
-      }
-      const slug = slugCase ? Str.toSlugCase(tenantData.name) : Str.toSlugCaseWithUnderscores(tenantData.name);
+    const { adapter, models } = this.getTenantContext();
+    assertNonEmptyString(tenantData.name, 'tenantData.name');
 
-      const tenant = await Tenant.create({
-        ...tenantData,
-        slug
-      });
-      return tenant.get();
-    } catch (err) {
-      throw err;
+    const existingTenant = await this.findTenant(tenantData.name, false);
+    if (existingTenant) {
+      if (returnIfFound) return existingTenant;
+      throw new TenantErrorHandler(TenantErrorHandler.AlreadyExists);
     }
 
+    const slug = slugCase
+      ? Str.toSlugCase(tenantData.name)
+      : Str.toSlugCaseWithUnderscores(tenantData.name);
+
+    const tenant = await adapter.create(models.tenants, {
+      ...tenantData,
+      slug,
+    });
+
+    await AuditTrail.emit({
+      action: 'tenant.create',
+      tenantId: String(tenant.id),
+      model: models.tenants,
+      recordId: String(tenant.id),
+      after: tenant as Record<string, any>,
+    });
+
+    return tenant as TenantInterface;
   }
 
-  /**
-   *
-   * @param slug
-   */
-  public async deleteTenant(
-    slug: TenantInterface['slug'],
-  ): Promise<TenantInterface> {
+  public async deleteTenant(slug: TenantInterface['slug']): Promise<TenantInterface> {
+    const { adapter, models } = this.getTenantContext();
+
     const tenant = await this.findTenant(slug);
     if (!tenant.isActive) {
       throw new TenantErrorHandler(TenantErrorHandler.Forbidden);
     }
-    await tenant.destroy();
-    return tenant.get();
+
+    await adapter.delete(models.tenants, { id: tenant.id });
+    await AuditTrail.emit({
+      action: 'tenant.delete',
+      tenantId: String(tenant.id),
+      model: models.tenants,
+      recordId: String(tenant.id),
+      before: tenant as Record<string, any>,
+    });
+    return tenant;
   }
 
-  /**
-   * Find Tenant in a platform
-   * @param slug
-   */
-  public async getTenant(
-    slug: TenantInterface['slug'],
-  ): Promise<TenantInterface> {
+  public async getTenant(slug: TenantInterface['slug']): Promise<TenantInterface> {
     return await this.findTenant(slug);
   }
 
-
-  /**
-   * update tenant data
-   * @param tenantData
-   * @param _slug
-   */
   public async updateTenant(
     _slug: TenantInterface['slug'],
-    tenantData: TenantUpdatedRequestType,
+    tenantData: TenantUpdatedRequestType
   ): Promise<TenantInterface> {
+    const { adapter, models } = this.getTenantContext();
+
     const tenant = await this.findTenant(_slug, false);
     if (!tenant) {
       throw new TenantErrorHandler(TenantErrorHandler.DoesNotExist);
     }
 
-    await tenant.update({
-      ...tenantData,
+    const updated = await adapter.update(models.tenants, { id: tenant.id }, tenantData);
+    await AuditTrail.emit({
+      action: 'tenant.update',
+      tenantId: String(tenant.id),
+      model: models.tenants,
+      recordId: String(tenant.id),
+      before: tenant as Record<string, any>,
+      after: (updated || tenant) as Record<string, any>,
     });
-    return tenant.get();
+    return (updated || tenant) as TenantInterface;
   }
 
-  /**
-   * Get Tenant User With Role
-   *
-   * @param _slug
-   */
   public async getUserWithRoleAndPermissions(
     tenantSlug: TenantInterface['slug']
   ): Promise<TenantInterface> {
     const tenant = await this.findTenant(tenantSlug);
-
-    const tenantWithRoles = await Tenant.findOne({
-      where: { id: tenant.id },
-      include: [
-        {
-          model: UserRole,
-          attributes: ['id', 'userId', 'status', 'createdAt'],
-          include: [
-            {
-              model: Role,
-              attributes: ['id', 'title', 'slug', 'isActive', 'description'],
-              include: [
-                {
-                  model: RolePermission,
-                  attributes: ['id'],
-                  include: [
-                    {
-                      model: Permission,
-                      attributes: [
-                        'id',
-                        'title',
-                        'slug',
-                        'isActive',
-                        'description',
-                        'createdAt',
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
-
-    if (!tenantWithRoles) {
-      return Promise.reject(
-        new TenantErrorHandler(
-          TenantErrorHandler.DoesNotExist
-        )
-      );
-    }
-
-    const roles = tenantWithRoles.userRoles.map((userRole) => {
-      const role = userRole.role.toJSON() as RoleInterface;
-      const permissions = userRole.role?.rolePermissions?.flatMap((rolePermission) => rolePermission.permissions);
-      role.permissions = permissions?.map(permission => ({ slug: permission.dataValues.slug, title: permission.dataValues.title, isActive: permission.dataValues.isActive, description: permission.dataValues.description }));
-      return role;
-    });
-
-    const { id, name, slug, description, isActive, createdAt, updatedAt } =
-      tenantWithRoles.toJSON();
+    const roles = await this.getRolesForTenantUsers(String(tenant.id));
 
     return {
-      id,
-      name,
-      slug,
-      description,
-      isActive,
-      createdAt,
-      updatedAt,
-      roles
-    };
-  }
-
-
-  public async getTenantWithRolesAndPermissions(tenantSlug: string): Promise<TenantInterface> {
-    const tenant = await this.findTenant(tenantSlug);
-
-    const tenantWithRoles = await Tenant.findOne({
-      where: { id: tenant.id },
-      include: [
-        {
-          model: Role,
-          attributes: ['id', 'title', 'slug', 'isActive', 'description'],
-          include: [
-            {
-              model: RolePermission,
-              attributes: ['id'],
-              include: [
-                {
-                  model: Permission,
-                  attributes: [
-                    'id',
-                    'title',
-                    'slug',
-                    'isActive',
-                    'description',
-                    'createdAt',
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
-
-    if (!tenantWithRoles) {
-      throw new TenantErrorHandler(TenantErrorHandler.DoesNotExist);
-    }
-
-    const roles = tenantWithRoles.roles.map((role) => {
-      const permissions = role?.rolePermissions?.flatMap(
-        (rolePermission) => rolePermission.permissions
-      );
-      const rolePermissions = permissions?.map((permission) => ({
-        slug: permission.slug,
-        title: permission.title,
-        isActive: permission.isActive,
-        description: permission.description,
-      }));
-      return {
-        id: role.id,
-        title: role.title,
-        slug: role.slug,
-        isActive: role.isActive,
-        description: role.description,
-        permissions: rolePermissions,
-      };
-    });
-
-    return {
-      id: tenantWithRoles.id,
-      name: tenantWithRoles.name,
-      slug: tenantWithRoles.slug,
-      description: tenantWithRoles.description,
-      isActive: tenantWithRoles.isActive,
-      createdAt: tenantWithRoles.createdAt,
-      updatedAt: tenantWithRoles.updatedAt,
+      ...tenant,
       roles,
     };
   }
 
+  public async getTenantWithRolesAndPermissions(tenantSlug: string): Promise<TenantInterface> {
+    const tenant = await this.findTenant(tenantSlug);
+    const roles = await this.getTenantRoleRecords(String(tenant.id));
 
+    return {
+      ...tenant,
+      roles,
+    };
+  }
 
-
-
-  /**
-   * Assign role to Tenant User
-   *
-   * @param tenantUserRoleData
-   */
   public async assignRoleToUser(
     userRoleData: UserRoleCreationType
   ): Promise<UserRoleInterface> {
+    const { adapter, models, keys } = this.getTenantContext();
+    hooks.emitHook('beforeRoleAssign', { userRoleData });
     const { userId, roleSlug, tenantId } = userRoleData;
     const tenant = await this.findTenantById(tenantId);
 
-    //check if this role belong to this tenant
     const foundRole = await roleService.findRole(tenant.id, roleSlug);
-    const userRole = await this.findUserRole(
-      tenant.id,
-      userId,
-      foundRole.id,
-      false
-    );
+    const userRole = await this.findUserRole(tenant.id, userId, foundRole.id, false);
 
     if (userRole) {
-      return Promise.reject(
-        new UserRoleErrorHandler(
-          UserRoleErrorHandler.AlreadyExists
-        )
-      );
+      throw new UserRoleErrorHandler(UserRoleErrorHandler.AlreadyExists);
     }
 
     try {
-      const status = UserRoleStatus.ACTIVE;
-      return await UserRole.create({
-        userId,
-        roleId: foundRole.id,
-        status,
-        tenantId: tenant.id,
+      const created = (await adapter.create(models.userRoles, {
+        [keys.userId]: userId,
+        [keys.roleId]: foundRole.id,
+        status: UserRoleStatus.ACTIVE,
+        [keys.tenantId]: tenant.id,
+      })) as UserRoleInterface;
+
+      hooks.emitHook('afterRoleAssign', { tenantId: tenant.id, userId, roleId: foundRole.id });
+      await AuditTrail.emit({
+        action: 'user.role.assign',
+        tenantId: String(tenant.id),
+        model: models.userRoles,
+        recordId: String(created.id),
+        after: created as Record<string, any>,
       });
+      this.invalidatePermissionCache(String(tenant.id), String(userId));
+      return created;
     } catch (err) {
-      throw new UserRoleErrorHandler(CommonErrorHandler.Fatal);
+      throw err;
     }
   }
 
-  /**
-   * Finds an existing tenant user record
-   *
-   * @param tenantId
-   * @param userId
-   * @param roleId
-   * @param rejectIfNotFound
-   */
   async findUserRole(
     tenantId: TenantInterface['id'],
     userId: UserRoleInterface['userId'],
     roleId: UserRoleInterface['roleId'],
     rejectIfNotFound: boolean = true
-  ): Promise<UserRole> {
-    const tenantUserRole = await UserRole.findOne({
-      where: { tenantId, userId, roleId },
-      include: [
-        {
-          model: Tenant,
-          attributes: ['name', 'slug', 'description'],
-        },
-      ],
+  ): Promise<UserRoleInterface> {
+    const { adapter, models, keys } = this.getTenantContext();
+
+    const tenantUserRole = await adapter.findOne(models.userRoles, {
+      where: {
+        [keys.tenantId]: tenantId,
+        [keys.userId]: userId,
+        [keys.roleId]: roleId,
+      },
     });
 
     if (!tenantUserRole && rejectIfNotFound) {
-      return Promise.reject(
-        new UserRoleErrorHandler(
-          UserRoleErrorHandler.DoesNotExist
-        )
-      );
+      throw new UserRoleErrorHandler(UserRoleErrorHandler.DoesNotExist);
     }
-    return tenantUserRole!;
+
+    return tenantUserRole as UserRoleInterface;
   }
 
-  /**
-   * Get tenant user roles
-   * @param tenantId
-   * @param userId
-   * @param rejectIfNotFound
-   */
   public async getUserRole(
     tenantId: UserRoleInterface['tenantId'],
     userId: UserRoleInterface['userId'],
     rejectIfNotFound: boolean = true
   ): Promise<UserRoleResponse> {
+    const { adapter, models, keys } = this.getTenantContext();
     const tenant = await this.findTenantById(tenantId);
-    const tenantUserRole = await UserRole.findAll({
-      where: { tenantId: tenant.id, userId },
-      include: [
-        {
-          model: Role,
-          attributes: ['id', 'title', 'slug', 'isActive', 'description'],
-        },
-      ],
+
+    const tenantUserRole = await adapter.findMany(models.userRoles, {
+      where: {
+        [keys.tenantId]: tenant.id,
+        [keys.userId]: userId,
+      },
     });
 
-    if (!tenantUserRole && rejectIfNotFound) {
-      return Promise.reject(
-        new UserRoleErrorHandler(
-          UserRoleErrorHandler.DoesNotExist
-        )
-      );
+    if (tenantUserRole.length === 0 && rejectIfNotFound) {
+      throw new UserRoleErrorHandler(UserRoleErrorHandler.DoesNotExist);
     }
 
-    const roles = tenantUserRole.reduce(
-      (result: Array<Record<string, any>>, privilege: UserRole) => {
-        if (privilege.role) {
-          result.push({
-            id: privilege?.role?.id,
-            title: privilege?.role?.title,
-            slug: privilege?.role?.slug,
-            description: privilege?.role?.description,
-          });
-        }
+    const roles = await Promise.all(
+      tenantUserRole.map(async (userRole) => {
+        const role = await adapter.findOne(models.roles, {
+          where: {
+            id: userRole[keys.roleId],
+          },
+        });
 
-        return result;
-      },
-      []
+        if (!role) return null;
+
+        return {
+          id: role.id,
+          title: role.title,
+          slug: role.slug,
+          description: role.description,
+        };
+      })
     );
 
     return {
       userId: userId,
-      roles,
+      roles: roles.filter(Boolean) as Array<Record<string, any>>,
     };
   }
 
-  /**
-   * Get tenant user permission
-   * @param tenantId
-   * @param userId
-   * @param rejectIfNotFound
-   */
+  public async getUserPermissions(
+    tenantId: string,
+    userId: string
+  ): Promise<UserPermissionResponse> {
+    const { adapter, models, keys } = this.getTenantContext();
 
-  public async getUserPermissions(tenantId: string, userId: string): Promise<UserPermissionResponse> {
-    const userRole = await UserRole.findOne({
+    const userRoles = await adapter.findMany(models.userRoles, {
       where: {
-        tenantId,
-        userId,
+        [keys.tenantId]: tenantId,
+        [keys.userId]: userId,
       },
-      include: [
-        {
-          model: Role,
-          include: [
-            {
-              model: RolePermission,
-              include: [
-                {
-                  model: Permission,
-                },
-              ],
-            },
-          ],
-        },
-      ],
     });
 
-    if (!userRole) {
+    if (!userRoles.length) {
       throw new Error(`User with id ${userId} not found in tenant with id ${tenantId}`);
     }
 
-    const permissions = userRole.roles.reduce((acc: Array<Record<string, any>>, role) => {
-      role?.rolePermissions?.forEach((permission) => {
-        const permissionExists = acc.find((p) => p.id === permission.id);
-        if (!permissionExists) {
-          acc.push(permission.toJSON());
-        }
-      });
-      return acc;
-    }, []);
+    const roleIds = uniqueById(
+      userRoles
+        .map((entry) => ({ id: String(entry[keys.roleId]) }))
+        .filter((entry) => entry.id !== 'undefined')
+    ).map((entry) => entry.id);
 
-    return { userId, permissions };
+    const rolePermissions = await adapter.findMany(models.rolePermissions, {
+      where: {
+        [keys.roleId]: roleIds,
+      },
+    });
+
+    const permissions = await Promise.all(
+      rolePermissions.map((entry) =>
+        adapter.findOne(models.permissions, {
+          where: { id: entry[keys.permissionId] },
+        })
+      )
+    );
+
+    return {
+      userId,
+      permissions: uniqueById(permissions.filter(Boolean) as Array<Record<string, any>>),
+    };
   }
 
-  /**
-   * Get tenant user role and permission
-   * @param tenantId
-   * @param userId
-   * @param rejectIfNotFound
-   */
   public async getUserRolesAndPermissions(
     tenantId: string,
     userId: string,
     rejectIfNotFound: boolean = true
   ): Promise<UserRoleResponse> {
-    const tenantUserRole = await UserRole.findAll({
-      where: { tenantId, userId },
-      include: [
-        {
-          model: Role,
-          attributes: ['title', 'slug', 'isActive', 'description'],
-          include: [
-            {
-              model: Permission,
-              attributes: ['title', 'slug', 'description'],
-            },
-          ],
-        },
-      ],
+    const { adapter, models, keys } = this.getTenantContext();
+
+    const tenantUserRole = await adapter.findMany(models.userRoles, {
+      where: {
+        [keys.tenantId]: tenantId,
+        [keys.userId]: userId,
+      },
     });
 
-    if (!tenantUserRole && rejectIfNotFound) {
-      return Promise.reject(
-        new UserRoleErrorHandler(
-          UserRoleErrorHandler.DoesNotExist
-        )
-      );
+    if (tenantUserRole.length === 0 && rejectIfNotFound) {
+      throw new UserRoleErrorHandler(UserRoleErrorHandler.DoesNotExist);
     }
 
-    const roleAndPermissions = tenantUserRole.map(
-      (rolePermission: UserRole) => {
-        rolePermission.role?.permissions?.forEach(
-          (permission: any) => delete permission.dataValues.RolePermission
-        );
+    const roleAndPermissions = await Promise.all(
+      tenantUserRole.map(async (userRole) => {
+        const role = await adapter.findOne(models.roles, {
+          where: { id: userRole[keys.roleId] },
+        });
 
-        return {
-          title: rolePermission.role.title,
-          slug: rolePermission.role.slug,
-          description: rolePermission.role.description,
-          permissions: rolePermission.role.permissions,
-        };
-      }
+        return role ? this.hydrateRoleWithPermissions(role) : null;
+      })
     );
 
     return {
       userId: userId,
-      roles: roleAndPermissions,
+      roles: roleAndPermissions.filter(Boolean) as Array<Record<string, any>>,
     };
   }
 
-  /**
-   *  Get user has permissions
-   * @param userId
-   * @param permission
-   */
   public async userHasPermission(payload: userHasPermission): Promise<boolean> {
-    const { userId, permission } = payload;
-    const userPermissions = await UserRole.findOne({
-      where: { userId: userId },
-      include: [
-        {
-          model: Permission,
-          where: { title: permission },
-        },
-      ],
+    const { userId, permission, tenantId } = payload;
+    const { adapter, models, keys } = this.getTenantContext();
+
+    const matchingPermissions = await adapter.findMany(models.permissions, {
+      where: { title: permission },
     });
-    return (userPermissions && true) || false;
+
+    if (!matchingPermissions.length) return false;
+
+    const userRoles = await adapter.findMany(models.userRoles, {
+      where: {
+        [keys.userId]: userId,
+        ...(tenantId ? { [keys.tenantId]: tenantId } : {}),
+      },
+    });
+
+    if (!userRoles.length) return false;
+
+    const permissionIds = matchingPermissions.map((entry) => String(entry.id));
+    const roleIds = userRoles.map((entry) => String(entry[keys.roleId]));
+
+    const rolePermissions = await adapter.findMany(models.rolePermissions, {
+      where: {
+        [keys.roleId]: roleIds,
+        [keys.permissionId]: permissionIds,
+      },
+    });
+
+    return rolePermissions.length > 0;
   }
 
-  public async syncUserWithRole(
-    payload: UserRoleSyncType
-  ): Promise<unknown> {
+  public async syncUserWithRole(payload: UserRoleSyncType): Promise<unknown> {
+    const { adapter, models, keys } = this.getTenantContext();
 
-    if (!Array.isArray(payload['role'])) {
-      payload['role'] = [payload['role']];
-    }
-    const { tenantId, userId, role } = payload;
+    const roleInput = Array.isArray(payload.role) ? payload.role : [payload.role];
+    assertArrayHasItems(roleInput, 'payload.role');
+    const { tenantId, userId } = payload;
 
-    try {
+    hooks.emitHook('beforeRoleSync', { tenantId, userId, roleInput });
+    return Database.withTransaction(async () => {
       const tenant = await this.findTenantById(tenantId);
-      //remove all the current role a user has
-      await UserRole.destroy({
-        where: { tenantId: tenant.id, userId },
+
+      await adapter.delete(models.userRoles, {
+        [keys.tenantId]: tenant.id,
+        [keys.userId]: userId,
       });
 
-      const roles = await roleService.findRoles(tenant.id, role);
+      const roles = await roleService.findRoles(tenant.id, roleInput);
 
-      const records: any[] = roles.map((role) => {
-        return {
-          userId,
-          roleId: role.id,
-          status: 'active',
-          tenantId: tenant.id,
-        };
+      const records = roles.map((roleData) => ({
+        [keys.userId]: userId,
+        [keys.roleId]: roleData.id,
+        status: UserRoleStatus.ACTIVE,
+        [keys.tenantId]: tenant.id,
+      }));
+
+      const created = adapter.createMany
+        ? await adapter.createMany(models.userRoles, records)
+        : await Promise.all(records.map((record) => adapter.create(models.userRoles, record)));
+
+      hooks.emitHook('afterRoleSync', { tenantId: tenant.id, userId, roles: created });
+      await AuditTrail.emit({
+        action: 'user.role.sync',
+        tenantId: String(tenant.id),
+        model: models.userRoles,
+        after: { userId, roles: created as Record<string, any>[] },
       });
+      this.invalidatePermissionCache(String(tenant.id), String(userId));
 
-      return await UserRole.bulkCreate([...records]);
-    } catch (e) {
-      throw e;
-    }
+      return created;
+    });
   }
 
   public async findUserByRole(
     tenantId: UserRoleInterface['tenantId'],
     roleSlug: string
   ): Promise<Array<UserRoleInterface>> {
+    const { adapter, models, keys } = this.getTenantContext();
     const tenant = await this.findTenantById(tenantId);
     const role = await roleService.findRoleByName(tenant.id, roleSlug);
-    const users = await UserRole.findAll({
-      where: { tenantId: tenant.id, roleId: role.id, status: 'active' },
+
+    const users = await adapter.findMany(models.userRoles, {
+      where: {
+        [keys.tenantId]: tenant.id,
+        [keys.roleId]: role.id,
+        status: UserRoleStatus.ACTIVE,
+      },
     });
-    return users;
+
+    return users as UserRoleInterface[];
+  }
+
+  public async assignRolesToUserBulk(
+    tenantId: UserRoleInterface['tenantId'],
+    userId: UserRoleInterface['userId'],
+    roleSlugs: string[]
+  ): Promise<Array<UserRoleInterface>> {
+    assertArrayHasItems(roleSlugs, 'roleSlugs');
+    const assignments = await Promise.all(
+      roleSlugs.map((roleSlug) =>
+        this.assignRoleToUser({
+          tenantId,
+          userId,
+          roleSlug,
+        })
+      )
+    );
+
+    return assignments;
+  }
+
+  public async revokeRoleFromUser(
+    tenantId: UserRoleInterface['tenantId'],
+    userId: UserRoleInterface['userId'],
+    roleSlug: string
+  ): Promise<number> {
+    const { adapter, models, keys } = this.getTenantContext();
+    const tenant = await this.findTenantById(tenantId);
+    const role = await roleService.findRole(tenant.id, roleSlug);
+
+    const deleted = await adapter.delete(models.userRoles, {
+      [keys.tenantId]: tenant.id,
+      [keys.userId]: userId,
+      [keys.roleId]: role.id,
+    });
+
+    if (deleted > 0) {
+      await AuditTrail.emit({
+        action: 'user.role.revoke',
+        tenantId: String(tenant.id),
+        model: models.userRoles,
+        after: { userId, roleId: role.id },
+      });
+      this.invalidatePermissionCache(String(tenant.id), String(userId));
+    }
+
+    return deleted;
+  }
+
+  public async syncUserRoles(
+    tenantId: UserRoleInterface['tenantId'],
+    userId: UserRoleInterface['userId'],
+    roleSlugs: string[]
+  ): Promise<Array<UserRoleInterface>> {
+    const result = await this.syncUserWithRole({
+      tenantId: tenantId as string,
+      userId: userId as string,
+      role: normalizeToArray(roleSlugs),
+    });
+
+    return result as UserRoleInterface[];
+  }
+
+  public async listEffectivePermissions(
+    tenantId: UserRoleInterface['tenantId'],
+    userId: UserRoleInterface['userId']
+  ): Promise<Array<Record<string, any>>> {
+    const key = this.getPermissionCacheKey(String(tenantId), String(userId));
+    const cached = effectivePermissionCache.get(key);
+    if (cached) return cached;
+
+    const userPermissions = await this.getUserPermissions(String(tenantId), String(userId));
+    effectivePermissionCache.set(key, userPermissions.permissions);
+    return userPermissions.permissions;
+  }
+
+  public async authorize(
+    tenantId: UserRoleInterface['tenantId'],
+    userId: UserRoleInterface['userId'],
+    permission: string
+  ): Promise<boolean> {
+    return this.userHasPermission({
+      tenantId,
+      userId,
+      permission,
+    });
   }
 }
 

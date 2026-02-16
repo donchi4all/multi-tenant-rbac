@@ -1,53 +1,47 @@
-import { Permission } from "../../models";
-import { 
-    PermissionInterface,
-    PermissionEditRequestType,
-    PermissionCreationRequestType 
-} from "../../models/permission/IPermission";
+import {
+  PermissionInterface,
+  PermissionEditRequestType,
+  PermissionCreationRequestType,
+} from '../../models/permission/IPermission';
 
 export interface IPermissionService {
-    /**
-     * Create a new permission for a platform
-     * 
-     * @param payload 
-     * @returns 
-     */
-    createPermission (
-        payload: PermissionCreationRequestType|PermissionCreationRequestType[]
-    ):  Promise<Array<Permission>>
+  /** Create permission(s). */
+  createPermission(
+    payload: PermissionCreationRequestType | PermissionCreationRequestType[],
+    slugCase?: boolean
+  ): Promise<Array<PermissionInterface>>;
 
-    /**
-     * Update an existing permission
-     * 
-     * @param permissionId 
-     * @param payload 
-     * @returns 
-     */
-    updatePermission (
-        permissionId: string, 
-        payload: PermissionEditRequestType
-    ):  Promise<Permission>
+  /** Update a permission by id. */
+  updatePermission(
+    permissionId: string,
+    payload: PermissionEditRequestType,
+    slugCase?: boolean
+  ): Promise<PermissionInterface>;
 
-    /**
-     * List all permissions tied to a business
-     * 
-     * @returns 
-     */
-    listPermissions ():  Promise<Array<Permission>>
+  /** List active permissions. */
+  listPermissions(): Promise<Array<PermissionInterface>>;
 
-    /**
-     * Find an existing permission
-     * 
-     * @param identifier 
-     * @returns 
-     */
-     findPermission(identifier: string): Promise<Permission>
+  /** Find active permission by slug/title. */
+  findPermission(identifier: string): Promise<PermissionInterface>;
 
-    /**
-     * Delete an existing permission
-     * 
-     * @param identifier 
-     * @returns 
-     */
-    deletePermission (identifier: string): Promise<void>
+  /** Delete permission by slug/title. */
+  deletePermission(identifier: string): Promise<void>;
+
+  /** Find active permission by id. */
+  findPermissionById(
+    permissionId: PermissionInterface['id'],
+    rejectIfNotFound?: boolean
+  ): Promise<PermissionInterface>;
+
+  /** Upsert permission by title/slug. */
+  upsertPermission(
+    payload: PermissionCreationRequestType,
+    slugCase?: boolean
+  ): Promise<PermissionInterface>;
+
+  /** Ensure a batch of permissions exists idempotently. */
+  ensurePermissions(
+    payload: PermissionCreationRequestType[],
+    slugCase?: boolean
+  ): Promise<Array<PermissionInterface>>;
 }

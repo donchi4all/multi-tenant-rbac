@@ -1,4 +1,4 @@
-import { Permission } from '../permission';
+import { PermissionInterface } from '../permission/IPermission';
 
 export interface UserRoleInterface {
   id?: string;
@@ -8,7 +8,7 @@ export interface UserRoleInterface {
   status: `${UserRoleStatus}`;
   createdAt?: Date;
   updatedAt?: Date;
-  permissions?: Permission[]
+  permissions?: PermissionInterface[];
 }
 
 export enum UserRoleStatus {
@@ -16,6 +16,12 @@ export enum UserRoleStatus {
   ACTIVE = 'active',
 }
 
-export type UserRoleCreationType = Pick<UserRoleInterface, 'userId' | 'tenantId'> & { roleSlug: string }
+export type UserRoleCreationType = Pick<UserRoleInterface, 'userId' | 'tenantId'> & {
+  roleSlug: string;
+};
 
-export type UserRoleRequestType = { roleId: string, tenantId: string, userId: string }
+export type UserRoleRequestType = {
+  roleId: string;
+  tenantId: string;
+  userId: string;
+};

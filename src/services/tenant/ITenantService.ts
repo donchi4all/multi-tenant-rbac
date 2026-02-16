@@ -7,102 +7,86 @@ import {
   UserRoleCreationType,
   UserRoleInterface,
 } from '../../models/user-role/IUserRole';
-import { UserRole } from '../../models';
 import { userHasPermission, UserRoleResponse } from './index';
 
 export interface ITenantService {
-  /**
-   * Create Tenant in a platform
-   * @param tenantData
-   */
+  /** Create a tenant (existing behavior preserved). */
   createTenant(
-    tenantData: TenantCreationType | TenantCreationType[],
+    tenantData: TenantCreationType | TenantCreationType[]
   ): Promise<TenantInterface>;
 
-  /**
-   * Find Tenant in a platform
-   * @param _slug
-   */
-  getTenant(
-    _slug: TenantInterface['slug'],
-  ): Promise<TenantInterface>;
+  /** Fetch tenant by slug. */
+  getTenant(_slug: TenantInterface['slug']): Promise<TenantInterface>;
 
+  /** Delete tenant by slug. */
+  deleteTenant(_slug: TenantInterface['slug']): Promise<TenantInterface>;
 
-  /**
-   *
-   * @param _slug
-   */
-  deleteTenant(
-    _slug: TenantInterface['slug'],
-  ): Promise<TenantInterface>;
-
-  /**
-   * update tenant data
-   * @param tenantData
-   * @param _slug
-   */
+  /** Update tenant data by slug. */
   updateTenant(
     _slug: TenantInterface['slug'],
     tenantData: TenantUpdatedRequestType
   ): Promise<TenantInterface>;
 
-  /**
-   * Get Tenant Roles and Permission
-   * @param _slug
-   */
-  getTenantWithRolesAndPermissions(
-    _slug: TenantInterface['slug']
-  ): Promise<unknown>;
+  /** List tenant roles with permissions. */
+  getTenantWithRolesAndPermissions(_slug: TenantInterface['slug']): Promise<unknown>;
 
-  /**
-   * Assign role with Tenant User
-   *
-   * @param platformSlug
-   * @param _slug
-   */
-  assignRoleToUser(
-    tenantUserRoleData: UserRoleCreationType
-  ): Promise<UserRoleInterface>;
+  /** Assign one role to a tenant user. */
+  assignRoleToUser(tenantUserRoleData: UserRoleCreationType): Promise<UserRoleInterface>;
 
-  /**
-   * Finds an existing tenant user record
-   *
-   * @param tenantId
-   * @param userId
-   * @param roleId
-   */
+  /** Find a tenant user-role relation. */
   findUserRole(
     tenantId: UserRoleInterface['tenantId'],
     userId: UserRoleInterface['userId'],
     roleId: UserRoleInterface['roleId']
-  ): Promise<UserRole>;
+  ): Promise<UserRoleInterface>;
 
-  /**
-   * Get tenant user role and permission
-   * @param tenantId
-   * @param userId
-   * @param rejectIfNotFound
-   */
+  /** Get user roles within a tenant. */
   getUserRole(
     tenantId: UserRoleInterface['tenantId'],
     userId: UserRoleInterface['userId'],
     rejectIfNotFound: boolean
   ): Promise<UserRoleResponse>;
 
-  /**
-   * Get tenant user has permissions
-   * @param userId
-   * @param permission
-   */
+  /** Check if user has permission via assigned roles. */
   userHasPermission(payload: userHasPermission): Promise<boolean>;
 
-  /**
-   * Find tenantUsers with Role
-   * @param tenantId
-   * @param roleSlug
-   */
+  /** Find users by role slug in a tenant. */
   findUserByRole(
     tenantId: UserRoleInterface['tenantId'],
     roleSlug: string
   ): Promise<Array<UserRoleInterface>>;
+
+  /** Assign multiple roles to a user. */
+  assignRolesToUserBulk(
+    tenantId: UserRoleInterface['tenantId'],
+    userId: UserRoleInterface['userId'],
+    roleSlugs: string[]
+  ): Promise<Array<UserRoleInterface>>;
+
+  /** Revoke a user role assignment. */
+  revokeRoleFromUser(
+    tenantId: UserRoleInterface['tenantId'],
+    userId: UserRoleInterface['userId'],
+    roleSlug: string
+  ): Promise<number>;
+
+  /** Idempotently replace all roles for a user. */
+  syncUserRoles(
+    tenantId: UserRoleInterface['tenantId'],
+    userId: UserRoleInterface['userId'],
+    roleSlugs: string[]
+  ): Promise<Array<UserRoleInterface>>;
+
+  /** List flattened effective permissions for a tenant user. */
+  listEffectivePermissions(
+    tenantId: UserRoleInterface['tenantId'],
+    userId: UserRoleInterface['userId']
+  ): Promise<Array<Record<string, any>>>;
+
+  /** Authorize a user for permission in a tenant context. */
+  authorize(
+    tenantId: UserRoleInterface['tenantId'],
+    userId: UserRoleInterface['userId'],
+    permission: string
+  ): Promise<boolean>;
 }
