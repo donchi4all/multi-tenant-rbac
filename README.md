@@ -2,7 +2,28 @@
 
 `multi-tenant-rbac` is a production-focused, multi-tenant authorization package for Node.js and TypeScript.
 
+## Why multi-tenant-rbac?
+
+Most RBAC libraries:
+
+- are not tenant-aware
+- assume single-tenant apps
+- are tightly coupled to one ORM
+- don’t support schema remapping
+- break in enterprise SaaS environments
+
+multi-tenant-rbac solves this by:
+
+- strict tenant isolation
+- adapter-based architecture
+- schema remapping support
+- CLI scaffolding
+- production-ready migration flow
+
+## Core Capabilities
+
 It provides:
+
 - tenant-scoped roles and permissions
 - adapter-based data access (core is ORM-agnostic)
 - configurable model/table names and foreign-key names
@@ -107,28 +128,33 @@ Defaults are used automatically for any `models` or `keys` values you do not pro
 - `syncOptions.force`: drops/recreates tables; keep `false` for safety.
 
 Default names (used when you do not override):
+
 - models: `users`, `tenants`, `roles`, `permissions`, `user_roles`, `role_permissions`
 - keys: `userId`, `tenantId`, `roleId`, `permissionId`
 
 ## Most Important Methods
 
 ### Bootstrap and structure
+
 - `createTenant`
 - `createRole` / `upsertRole`
 - `createPermission` / `ensurePermissions`
 
 ### Permission mapping
+
 - `syncRoleWithPermissions`
 - `grantPermissionsToRole`
 - `revokePermissionsFromRole`
 
 ### User assignment
+
 - `assignRoleToUser`
 - `assignRolesToUserBulk`
 - `syncUserRoles`
 - `revokeRoleFromUser`
 
 ### Authorization checks
+
 - `authorize`
 - `userHasPermission`
 - `listEffectivePermissions`
@@ -211,6 +237,7 @@ node ./node_modules/.bin/sequelize-cli db:migrate --migrations-path ./rbac-gener
 ```
 
 Generated SQL migrations are idempotent:
+
 - create table only when missing
 - add missing configured columns when table already exists
 - never drop/recreate by default
@@ -232,11 +259,13 @@ Generated SQL migrations are idempotent:
 Contributions are welcome.
 
 If you want to contribute, please:
+
 1. Open an issue with your proposal or bug report.
 2. Submit a PR with tests.
 3. For major changes, discuss design first.
 
 Reach out here:
+
 - Issues: `https://github.com/donchi4all/multi-tenant-rbac/issues`
 - Repository: `https://github.com/donchi4all/multi-tenant-rbac`
 
