@@ -1,4 +1,4 @@
-# Multi-Tenant RBAC v2.0
+# Multi-Tenant RBAC v2.1
 
 `multi-tenant-rbac` is a production-focused, multi-tenant authorization package for Node.js and TypeScript.
 
@@ -8,7 +8,7 @@ It provides:
 - configurable model/table names and foreign-key names
 - easy startup for MySQL, PostgreSQL, and MongoDB setups
 
-## What changed in 2.0
+## What changed in 2.x
 
 - Introduced adapter-based architecture so core logic is ORM-agnostic.
 - Added `models` config to override default model/table names.
@@ -16,7 +16,7 @@ It provides:
 - Added `rbac init` and expanded CLI flows for scaffolding and validation.
 - Preserved backward compatibility with default names and legacy config paths.
 
-For full details, see `RELEASE_NOTES_v2.md`.
+For full details, see [`RELEASE_NOTES_v2.md`](./RELEASE_NOTES_v2.md).
 
 ## Install
 
@@ -38,13 +38,13 @@ import MultiTenantRBAC, { Database, rbacConfig } from 'multi-tenant-rbac';
 
 const config: rbacConfig = {
   sequelizeConfig: {
-    dialect: 'mysql',
-    host: '127.0.0.1',
-    port: 3306,
-    database: 'rbac_db',
-    username: 'root',
-    password: 'password',
-    logging: false,
+    dialect: 'mysql', // mysql | postgres | mariadb | sqlite | mssql
+    host: '127.0.0.1', // DB host
+    port: 3306, // DB port
+    database: 'rbac_db', // DB name
+    username: 'root', // DB username
+    password: 'password', // DB password
+    logging: false, // set true (or logger fn) to see SQL queries
     sync: true, // dev only; prefer migrations in production
   },
 };
@@ -69,7 +69,11 @@ const config: rbacConfig = {
     username: 'root',
     password: 'password',
     logging: false,
-    sync: true,
+    sync: true, // auto-sync Sequelize models
+    syncOptions: {
+      alter: true, // add missing columns safely
+      force: false, // never drop/recreate tables
+    },
   },
   models: {
     users: 'admins',
@@ -92,6 +96,19 @@ const rbac = new MultiTenantRBAC(config);
 ```
 
 Defaults are used automatically for any `models` or `keys` values you do not provide.
+
+## Config Options (Easy Guide)
+
+- `sequelizeConfig`: SQL connection/runtime options used by the built-in Sequelize adapter.
+- `models`: overrides default RBAC table/collection names.
+- `keys`: overrides default relation key names (`userId`, `tenantId`, `roleId`, `permissionId`).
+- `sync`: useful for local development; in production prefer migrations.
+- `syncOptions.alter`: adds missing columns without dropping tables.
+- `syncOptions.force`: drops/recreates tables; keep `false` for safety.
+
+Default names (used when you do not override):
+- models: `users`, `tenants`, `roles`, `permissions`, `user_roles`, `role_permissions`
+- keys: `userId`, `tenantId`, `roleId`, `permissionId`
 
 ## Most Important Methods
 
@@ -185,6 +202,18 @@ node ./node_modules/.bin/sequelize-cli db:migrate \
   --url mysql://root:password@localhost:3306/lib_rbac \
   --migrations-path ./node_modules/multi-tenant-rbac/src/migrations
 ```
+
+If you provide custom `models` and/or `keys`, generate custom migrations and run those instead of package defaults:
+
+```bash
+rbac init --orm sequelize --out ./rbac-generated --models ... --keys ...
+node ./node_modules/.bin/sequelize-cli db:migrate --migrations-path ./rbac-generated/sequelize/migrations
+```
+
+Generated SQL migrations are idempotent:
+- create table only when missing
+- add missing configured columns when table already exists
+- never drop/recreate by default
 
 ## Standalone Integration Examples
 

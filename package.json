@@ -1,9 +1,15 @@
 {
   "name": "multi-tenant-rbac",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "multi-tenant-rbac is a Node.js package that provides a role-based access control (RBAC) system for multi-tenant applications. It allows you to manage roles and permissions at the tenant level, so each tenant can have its own set of roles and permissions",
   "main": "donsoft/src/index.js",
   "types": "donsoft/src/index.d.ts",
+  "files": [
+    "donsoft/src/**/*",
+    "README.md",
+    "RELEASE_NOTES_v2.md",
+    "ENTERPRISE_ROADMAP.md"
+  ],
   "bin": {
     "rbac": "donsoft/src/cli/rbac.js"
   },

@@ -120,42 +120,80 @@ function createMigrationTemplate(
     )
     .join('\n');
 
+  const addMissingColumns = columns
+    .map(
+      (column) => `    if (!existingColumns['${column.name}']) {
+      await queryInterface.addColumn('${tableName}', '${column.name}', {
+        type: Sequelize.STRING,
+        allowNull: ${column.allowNull === false ? 'false' : 'true'},
+      });
+    }`
+    )
+    .join('\n');
+
   return `'use strict';
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('${tableName}', {
-      id: {
-        allowNull: false,
-        autoIncrement: true,
-        primaryKey: true,
-        type: Sequelize.INTEGER,
-      },
+    const allTables = await queryInterface.showAllTables();
+    const normalizedTables = allTables
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        return item?.tableName || item?.name || '';
+      })
+      .map((item) => String(item).toLowerCase());
+
+    const tableExists = normalizedTables.includes('${tableName.toLowerCase()}');
+
+    if (!tableExists) {
+      await queryInterface.createTable('${tableName}', {
+        id: {
+          allowNull: false,
+          autoIncrement: true,
+          primaryKey: true,
+          type: Sequelize.INTEGER,
+        },
 ${body}
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE,
-      },
-      updatedAt: {
-        allowNull: false,
-        type: Sequelize.DATE,
-      },
-    });
+        createdAt: {
+          allowNull: false,
+          type: Sequelize.DATE,
+        },
+        updatedAt: {
+          allowNull: false,
+          type: Sequelize.DATE,
+        },
+      });
+      return;
+    }
+
+    const existingColumns = await queryInterface.describeTable('${tableName}');
+${addMissingColumns}
   },
 
   async down(queryInterface) {
+    const allTables = await queryInterface.showAllTables();
+    const normalizedTables = allTables
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        return item?.tableName || item?.name || '';
+      })
+      .map((item) => String(item).toLowerCase());
+
+    if (!normalizedTables.includes('${tableName.toLowerCase()}')) return;
+
     await queryInterface.dropTable('${tableName}');
   },
 };
 `;
 }
 
-function generateSequelize(options: CliOptions): void {
-  const modelsDir = path.join(options.outDir, 'sequelize', 'models');
-  const migrationsDir = path.join(options.outDir, 'sequelize', 'migrations');
-
-  const modelDefs: Array<{ name: string; fields: string[]; migrationCols: Array<{ name: string; allowNull?: boolean }> }> = [
+function createSqlModelDefs(options: CliOptions): Array<{
+  name: string;
+  fields: string[];
+  migrationCols: Array<{ name: string; allowNull?: boolean }>;
+}> {
+  return [
     {
       name: options.models.users,
       fields: ['name', 'email'],
@@ -165,29 +203,44 @@ function generateSequelize(options: CliOptions): void {
       ],
     },
     {
+      name: options.models.tenants,
+      fields: ['name', 'slug', 'description', 'isActive'],
+      migrationCols: [
+        { name: 'name', allowNull: false },
+        { name: 'slug', allowNull: false },
+        { name: 'description', allowNull: true },
+        { name: 'isActive', allowNull: false },
+      ],
+    },
+    {
       name: options.models.roles,
-      fields: [options.keys.tenantId, 'title', 'slug'],
+      fields: [options.keys.tenantId, 'title', 'slug', 'description', 'isActive'],
       migrationCols: [
         { name: options.keys.tenantId, allowNull: false },
         { name: 'title', allowNull: false },
         { name: 'slug', allowNull: false },
+        { name: 'description', allowNull: true },
+        { name: 'isActive', allowNull: false },
       ],
     },
     {
       name: options.models.permissions,
-      fields: ['title', 'slug'],
+      fields: ['title', 'slug', 'description', 'isActive'],
       migrationCols: [
         { name: 'title', allowNull: false },
         { name: 'slug', allowNull: false },
+        { name: 'description', allowNull: true },
+        { name: 'isActive', allowNull: false },
       ],
     },
     {
       name: options.models.userRoles,
-      fields: [options.keys.userId, options.keys.roleId, options.keys.tenantId],
+      fields: [options.keys.userId, options.keys.roleId, options.keys.tenantId, 'status'],
       migrationCols: [
         { name: options.keys.userId, allowNull: false },
         { name: options.keys.roleId, allowNull: false },
         { name: options.keys.tenantId, allowNull: false },
+        { name: 'status', allowNull: false },
       ],
     },
     {
@@ -199,6 +252,13 @@ function generateSequelize(options: CliOptions): void {
       ],
     },
   ];
+}
+
+function generateSequelize(options: CliOptions): void {
+  const modelsDir = path.join(options.outDir, 'sequelize', 'models');
+  const migrationsDir = path.join(options.outDir, 'sequelize', 'migrations');
+
+  const modelDefs = createSqlModelDefs(options);
 
   modelDefs.forEach((def, index) => {
     writeFileSafely(
@@ -219,11 +279,15 @@ function generateMongoose(options: CliOptions): void {
 
   const modelDefs: Array<{ name: string; fields: string[] }> = [
     { name: options.models.users, fields: ['name', 'email'] },
-    { name: options.models.roles, fields: [options.keys.tenantId, 'title', 'slug'] },
-    { name: options.models.permissions, fields: ['title', 'slug'] },
+    { name: options.models.tenants, fields: ['name', 'slug', 'description', 'isActive'] },
+    {
+      name: options.models.roles,
+      fields: [options.keys.tenantId, 'title', 'slug', 'description', 'isActive'],
+    },
+    { name: options.models.permissions, fields: ['title', 'slug', 'description', 'isActive'] },
     {
       name: options.models.userRoles,
-      fields: [options.keys.userId, options.keys.roleId, options.keys.tenantId],
+      fields: [options.keys.userId, options.keys.roleId, options.keys.tenantId, 'status'],
     },
     {
       name: options.models.rolePermissions,

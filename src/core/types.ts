@@ -47,6 +47,11 @@ export type SequelizeConfig = {
   database?: string;
   logging?: boolean;
   sync?: boolean;
+  syncOptions?: {
+    alter?: boolean;
+    force?: boolean;
+    match?: RegExp;
+  };
   autoDefineModels?: boolean;
   sequelize?: any;
   models?: Record<string, any>;

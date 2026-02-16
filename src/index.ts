@@ -30,7 +30,13 @@ class MultiTenantRBAC {
   }
 
   public init(config: rbacConfig): void {
-    void Database.init(config);
+    try {
+      // If already initialized externally (recommended path), avoid re-initializing in background.
+      Database.getConfig();
+      return;
+    } catch (_error) {
+      void Database.init(config);
+    }
   }
 }
 

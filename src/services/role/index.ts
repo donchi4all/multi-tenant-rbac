@@ -34,6 +34,12 @@ function uniq(values: string[]): string[] {
 }
 
 export class RoleService implements IRoleService {
+  private buildRoleFatalMessage(operation: string, model: string, err: unknown): string {
+    const base = err instanceof Error ? err.message : CommonErrorHandler.Fatal.message;
+    return `${operation} failed on "${model}". Cause: ${base}. ` +
+      'Check model/key mappings and column compatibility.';
+  }
+
   private getRoleContext() {
     return Database.getConfig();
   }
@@ -253,7 +259,14 @@ export class RoleService implements IRoleService {
 
       return role as RoleInterface;
     } catch (err) {
-      throw new RoleErrorHandler(CommonErrorHandler.Fatal);
+      if (err instanceof RoleErrorHandler) {
+        throw err;
+      }
+
+      throw new RoleErrorHandler({
+        ...CommonErrorHandler.Fatal,
+        message: this.buildRoleFatalMessage('findRoleById', models.roles, err),
+      });
     }
   }
 
@@ -338,7 +351,18 @@ export class RoleService implements IRoleService {
 
       return rolePermission as RolePermissionInterface;
     } catch (e) {
-      throw new RolePermissionErrorHandler(CommonErrorHandler.Fatal);
+      if (e instanceof RolePermissionErrorHandler) {
+        throw e;
+      }
+
+      throw new RolePermissionErrorHandler({
+        ...CommonErrorHandler.Fatal,
+        message: this.buildRoleFatalMessage(
+          'findRolePermission',
+          models.rolePermissions,
+          e
+        ),
+      });
     }
   }
 

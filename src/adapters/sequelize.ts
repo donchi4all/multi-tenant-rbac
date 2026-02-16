@@ -68,7 +68,13 @@ export class SequelizeAdapter implements IRbacAdapter {
     this.bindKnownAliases(config);
 
     if (sequelizeConfig.sync) {
-      await this.sequelize.sync();
+      await this.sequelize.sync({
+        alter: sequelizeConfig.syncOptions?.alter ?? true,
+        force: sequelizeConfig.syncOptions?.force ?? false,
+        ...(sequelizeConfig.syncOptions?.match
+          ? { match: sequelizeConfig.syncOptions.match }
+          : {}),
+      });
     }
   }
 
@@ -148,21 +154,29 @@ export class SequelizeAdapter implements IRbacAdapter {
   }
 
   private bindKnownAliases(config: RbacResolvedConfig): void {
-    this.bindAliasList([config.models.tenants, 'tenants']);
-    this.bindAliasList([config.models.roles, 'roles']);
-    this.bindAliasList([config.models.permissions, 'permissions']);
-    this.bindAliasList([config.models.userRoles, 'user_roles', 'userRoles']);
-    this.bindAliasList([config.models.rolePermissions, 'role_permissions', 'rolePermissions']);
+    this.bindAliasList(config.models.tenants, ['tenants']);
+    this.bindAliasList(config.models.roles, ['roles']);
+    this.bindAliasList(config.models.permissions, ['permissions']);
+    this.bindAliasList(
+      config.models.userRoles,
+      config.models.userRoles === 'user_roles' ? ['user_roles', 'userRoles'] : ['userRoles']
+    );
+    this.bindAliasList(
+      config.models.rolePermissions,
+      config.models.rolePermissions === 'role_permissions'
+        ? ['role_permissions', 'rolePermissions']
+        : ['rolePermissions']
+    );
   }
 
-  private bindAliasList(aliases: string[]): void {
-    const source = aliases
+  private bindAliasList(primaryAlias: string, aliases: string[]): void {
+    const source = [primaryAlias, ...aliases]
       .map((alias) => this.resolveModel(alias))
       .find((model) => !!model);
 
     if (!source) return;
 
-    aliases.forEach((alias) => {
+    [primaryAlias, ...aliases].forEach((alias) => {
       this.modelMap.set(alias, source);
     });
   }

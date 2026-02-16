@@ -74,6 +74,16 @@ function uniqueById(items: Array<Record<string, any>>): Array<Record<string, any
 const effectivePermissionCache = new TtlCache<Array<Record<string, any>>>(60_000);
 
 export class TenantService implements ITenantService {
+  private buildTenantFatalMessage(
+    operation: string,
+    model: string,
+    err: unknown
+  ): string {
+    const base = err instanceof Error ? err.message : CommonErrorHandler.Fatal.message;
+    return `${operation} failed on "${model}". Cause: ${base}. ` +
+      'Check table mapping (config.models), required columns, and database connection.';
+  }
+
   private getTenantContext() {
     return Database.getConfig();
   }
@@ -187,7 +197,13 @@ export class TenantService implements ITenantService {
 
       return tenant as TenantInterface;
     } catch (err) {
-      throw new TenantErrorHandler(CommonErrorHandler.Fatal);
+      if (err instanceof TenantErrorHandler) {
+        throw err;
+      }
+      throw new TenantErrorHandler({
+        ...CommonErrorHandler.Fatal,
+        message: this.buildTenantFatalMessage('findTenant', models.tenants, err),
+      });
     }
   }
 
@@ -210,7 +226,13 @@ export class TenantService implements ITenantService {
 
       return tenant as TenantInterface;
     } catch (err) {
-      throw new TenantErrorHandler(CommonErrorHandler.Fatal);
+      if (err instanceof TenantErrorHandler) {
+        throw err;
+      }
+      throw new TenantErrorHandler({
+        ...CommonErrorHandler.Fatal,
+        message: this.buildTenantFatalMessage('findTenantById', models.tenants, err),
+      });
     }
   }
 
