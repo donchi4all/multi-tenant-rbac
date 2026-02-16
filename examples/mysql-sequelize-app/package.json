@@ -1,0 +1,21 @@
+{
+  "name": "mysql-sequelize-rbac-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone parent project integrating multi-tenant-rbac with Sequelize + MySQL",
+  "scripts": {
+    "start": "ts-node src/app.ts",
+    "start:advanced": "ts-node src/app.advanced-schema.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "multi-tenant-rbac": "file:../..",
+    "mysql2": "^3.11.4",
+    "sequelize": "^6.37.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
+  }
+}

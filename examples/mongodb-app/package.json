@@ -1,0 +1,19 @@
+{
+  "name": "mongodb-rbac-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone parent project integrating multi-tenant-rbac with mongodbConfig",
+  "scripts": {
+    "start": "ts-node src/app.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "multi-tenant-rbac": "file:../..",
+    "mongoose": "^8.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
+  }
+}
