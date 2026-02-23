@@ -202,14 +202,70 @@ console.log({ allowed });
 rbac init --orm sequelize --out ./rbac-generated
 ```
 
+If your shell returns `command not found: rbac`, use one of these:
+
+```bash
+npx rbac init --orm sequelize --out ./rbac-generated
+```
+
+```bash
+./node_modules/.bin/rbac init --orm sequelize --out ./rbac-generated
+```
+
+Use `rbac ...` directly only when the binary is already on your `PATH` (for example, global install or npm script context).
+
 ### With custom names
 
 ```bash
 rbac init \
   --orm sequelize \
-  --models users=admins,roles=acl_roles,permissions=acl_permissions,userRoles=admin_role_links,rolePermissions=role_permission_links \
-  --keys userId=adminId,roleId=roleRefId,permissionId=permissionRefId,tenantId=workspaceId
+  --models users=admins,tenants=workspaces,roles=acl_roles,permissions=acl_permissions,userRoles=admin_role_links,rolePermissions=role_permission_links \
+  --keys userId=adminId,tenantId=workspaceId,roleId=roleRefId,permissionId=permissionRefId
 ```
+
+### Advanced schema example (custom table names + FK keys)
+
+If your parent project already has naming standards, generate RBAC files with those exact names:
+
+```bash
+rbac init \
+  --orm sequelize \
+  --out ./rbac-generated \
+  --models users=rbac_admins_v2,tenants=rbac_workspaces_v2,roles=rbac_acl_roles_v2,permissions=rbac_acl_permissions_v2,userRoles=rbac_admin_role_links_v2,rolePermissions=rbac_role_permission_links_v2 \
+  --keys userId=adminId,tenantId=workspaceId,roleId=roleRefId,permissionId=permissionRefId
+```
+
+This maps to the same configuration used in `examples/mysql-sequelize-app/src/app.advanced-schema.ts`:
+
+```ts
+models: {
+  users: 'rbac_admins_v2',
+  tenants: 'rbac_workspaces_v2',
+  roles: 'rbac_acl_roles_v2',
+  permissions: 'rbac_acl_permissions_v2',
+  userRoles: 'rbac_admin_role_links_v2',
+  rolePermissions: 'rbac_role_permission_links_v2',
+},
+keys: {
+  userId: 'adminId',
+  tenantId: 'workspaceId',
+  roleId: 'roleRefId',
+  permissionId: 'permissionRefId',
+},
+```
+
+Run these after generation:
+
+```bash
+node ./node_modules/.bin/sequelize-cli db:migrate \
+  --migrations-path ./rbac-generated/sequelize/migrations
+```
+
+Verify what was generated in:
+
+- `./rbac-generated/rbac.init.json`
+- `./rbac-generated/sequelize/models`
+- `./rbac-generated/sequelize/migrations`
 
 ### Other commands
 
