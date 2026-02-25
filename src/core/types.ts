@@ -22,6 +22,91 @@ export type RbacKeysConfig = {
   tenantId: string;
 };
 
+export type ResolveRbacModels<
+  T extends Partial<RbacModelsConfig> | undefined = undefined
+> = {
+  users: T extends { users: infer V extends string } ? V : RbacModelsConfig['users'];
+  roles: T extends { roles: infer V extends string } ? V : RbacModelsConfig['roles'];
+  permissions: T extends { permissions: infer V extends string }
+    ? V
+    : RbacModelsConfig['permissions'];
+  userRoles: T extends { userRoles: infer V extends string }
+    ? V
+    : RbacModelsConfig['userRoles'];
+  rolePermissions: T extends { rolePermissions: infer V extends string }
+    ? V
+    : RbacModelsConfig['rolePermissions'];
+  tenants: T extends { tenants: infer V extends string } ? V : RbacModelsConfig['tenants'];
+};
+
+export type ResolveRbacKeys<
+  T extends Partial<RbacKeysConfig> | undefined = undefined
+> = {
+  userId: T extends { userId: infer V extends string } ? V : RbacKeysConfig['userId'];
+  roleId: T extends { roleId: infer V extends string } ? V : RbacKeysConfig['roleId'];
+  permissionId: T extends { permissionId: infer V extends string }
+    ? V
+    : RbacKeysConfig['permissionId'];
+  tenantId: T extends { tenantId: infer V extends string } ? V : RbacKeysConfig['tenantId'];
+};
+
+export type DynamicUserRef<K extends RbacKeysConfig> = {
+  [P in K['userId']]: string;
+};
+
+export type DynamicTenantRef<K extends RbacKeysConfig> = {
+  [P in K['tenantId']]: string;
+};
+
+export type DynamicRoleRef<K extends RbacKeysConfig> = {
+  [P in K['roleId']]: string;
+};
+
+export type DynamicUserRoleCreate<K extends RbacKeysConfig> = DynamicUserRef<K> &
+  DynamicTenantRef<K> & {
+    roleSlug: string;
+  };
+
+export type DynamicUserRoleQuery<K extends RbacKeysConfig> = DynamicUserRef<K> &
+  DynamicTenantRef<K> & {
+    rejectIfNotFound?: boolean;
+  };
+
+export type DynamicUserRoleRevoke<K extends RbacKeysConfig> = DynamicUserRef<K> &
+  DynamicTenantRef<K> & {
+    roleSlug: string;
+  };
+
+export type DynamicAuthorizePayload<K extends RbacKeysConfig> = DynamicUserRef<K> &
+  DynamicTenantRef<K> & {
+  permission: string;
+};
+
+export type DynamicBulkRolePayload<K extends RbacKeysConfig> = DynamicUserRef<K> &
+  DynamicTenantRef<K> & {
+    roleSlugs: string[];
+  };
+
+export type DynamicFindUserByRolePayload<K extends RbacKeysConfig> = DynamicTenantRef<K> & {
+  roleSlug: string;
+};
+
+export type DynamicUserHasPermissionPayload<K extends RbacKeysConfig> = DynamicUserRef<K> & {
+  permission: string;
+} & Partial<DynamicTenantRef<K>>;
+
+export type DynamicUserRoleResponse<K extends RbacKeysConfig> = {
+  [P in K['userId']]: string | undefined;
+} & {
+  roles: Array<Record<string, any>>;
+};
+
+export type DynamicUserPermissionResponse<K extends RbacKeysConfig> = {
+  [P in K['userId']]: string;
+} & {
+  permissions: Array<Record<string, any>>;
+};
+
 export type MysqlConfig = {
   host: string;
   port: number;

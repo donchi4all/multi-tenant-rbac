@@ -15,8 +15,22 @@ type DoctorReport = {
   packageJsonExists: boolean;
   hasTsConfig: boolean;
   hasSequelizeCli: boolean;
+  hasRbacCli: boolean;
+  hasRbacPackage: boolean;
+  hasRbacManifest: boolean;
+  defaultManifestPath: string;
   recommendations: string[];
 };
+
+const RBAC_MODEL_KEYS = [
+  'users',
+  'tenants',
+  'roles',
+  'permissions',
+  'userRoles',
+  'rolePermissions',
+] as const;
+const RBAC_FK_KEYS = ['userId', 'tenantId', 'roleId', 'permissionId'] as const;
 
 function parseKvFlag(input: string | undefined): Record<string, string> {
   if (!input) return {};
@@ -27,6 +41,191 @@ function parseKvFlag(input: string | undefined): Record<string, string> {
     if (key && value) acc[key] = value;
     return acc;
   }, {} as Record<string, string>);
+}
+
+function extractKeyMapBlock(
+  source: string,
+  blockName: 'models' | 'keys',
+  expectedKeys: readonly string[]
+): Record<string, string> {
+  const blockMatch = source.match(
+    new RegExp(`${blockName}\\s*:\\s*\\{([\\s\\S]*?)\\}`, 'm')
+  );
+  if (!blockMatch) return {};
+
+  const blockBody = blockMatch[1];
+  const result: Record<string, string> = {};
+
+  expectedKeys.forEach((key) => {
+    const keyMatch = blockBody.match(
+      new RegExp(`\\b${key}\\b\\s*:\\s*['"\`]([^'"\`]+)['"\`]`, 'm')
+    );
+    if (keyMatch?.[1]) {
+      result[key] = keyMatch[1];
+    }
+  });
+
+  return result;
+}
+
+function extractConfigOverridesFromSource(source: string): Record<string, any> {
+  const models = extractKeyMapBlock(source, 'models', RBAC_MODEL_KEYS);
+  const keys = extractKeyMapBlock(source, 'keys', RBAC_FK_KEYS);
+
+  return {
+    ...(Object.keys(models).length > 0 ? { models } : {}),
+    ...(Object.keys(keys).length > 0 ? { keys } : {}),
+    ...(source.includes('sequelizeConfig:') ? { sequelizeConfig: { dialect: 'mysql' } } : {}),
+    ...(source.includes('mongodbConfig:') ? { mongodbConfig: { url: '' } } : {}),
+  };
+}
+
+function loadConfigOverrides(configPath: string): Record<string, any> {
+  const absolutePath = path.resolve(process.cwd(), configPath);
+  if (!fs.existsSync(absolutePath)) {
+    throw new Error(`Config file not found: ${absolutePath}`);
+  }
+
+  const ext = path.extname(absolutePath).toLowerCase();
+  const rawSource = fs.readFileSync(absolutePath, 'utf8');
+
+  if (ext === '.json') {
+    const parsed = JSON.parse(rawSource) as Record<string, any>;
+    const extracted = extractConfigOverridesFromSource(rawSource);
+    return {
+      ...parsed,
+      ...extracted,
+      models: { ...(parsed.models || {}), ...(extracted.models || {}) },
+      keys: { ...(parsed.keys || {}), ...(extracted.keys || {}) },
+    };
+  }
+
+  const extracted = extractConfigOverridesFromSource(rawSource);
+  if (Object.keys(extracted.models || {}).length > 0 || Object.keys(extracted.keys || {}).length > 0) {
+    return extracted;
+  }
+
+  const loadModule = (): any => {
+    delete require.cache[require.resolve(absolutePath)];
+    return require(absolutePath);
+  };
+
+  try {
+    const mod = loadModule();
+    return (mod?.default ||
+      mod?.typedRbacConfig ||
+      mod?.config ||
+      mod?.rbacConfig ||
+      mod) as Record<string, any>;
+  } catch (error) {
+    if (ext === '.ts' || ext === '.mts' || ext === '.cts') {
+      try {
+        require('ts-node/register/transpile-only');
+        const mod = loadModule();
+        return (mod?.default ||
+          mod?.typedRbacConfig ||
+          mod?.config ||
+          mod?.rbacConfig ||
+          mod) as Record<string, any>;
+      } catch (_tsError) {
+        // fall through to unified error below
+      }
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to load config file "${absolutePath}": ${message}`);
+  }
+}
+
+function collectSourceFiles(
+  rootDir: string,
+  maxFiles: number = 400
+): string[] {
+  if (!fs.existsSync(rootDir)) return [];
+
+  const files: string[] = [];
+  const queue: string[] = [rootDir];
+  const allowedExt = new Set(['.ts', '.js', '.mts', '.cts', '.mjs', '.cjs', '.json']);
+  const skipDirs = new Set([
+    'node_modules',
+    '.git',
+    'dist',
+    'build',
+    'coverage',
+    'donsoft',
+    'rbac-generated',
+  ]);
+
+  while (queue.length > 0 && files.length < maxFiles) {
+    const current = queue.shift() as string;
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (files.length >= maxFiles) break;
+      const fullPath = path.join(current, entry.name);
+
+      if (entry.isDirectory()) {
+        if (!skipDirs.has(entry.name)) {
+          queue.push(fullPath);
+        }
+        continue;
+      }
+
+      if (allowedExt.has(path.extname(entry.name).toLowerCase())) {
+        files.push(fullPath);
+      }
+    }
+  }
+
+  return files;
+}
+
+function autoDetectConfigOverrides(cwd: string): { source: string; config: Record<string, any> } | null {
+  const candidateFiles = [
+    'rbac.config.json',
+    'rbac.config.js',
+    'rbac.config.ts',
+    'rbac.typed-config.json',
+    'rbac.typed-config.js',
+    'rbac.typed-config.ts',
+    path.join('src', 'rbac.config.json'),
+    path.join('src', 'rbac.config.js'),
+    path.join('src', 'rbac.config.ts'),
+    path.join('src', 'rbac.typed-config.json'),
+    path.join('src', 'rbac.typed-config.js'),
+    path.join('src', 'rbac.typed-config.ts'),
+  ];
+
+  for (const relativePath of candidateFiles) {
+    const absolutePath = path.resolve(cwd, relativePath);
+    if (!fs.existsSync(absolutePath)) continue;
+    const config = loadConfigOverrides(absolutePath);
+    if (Object.keys(config.models || {}).length > 0 || Object.keys(config.keys || {}).length > 0) {
+      return { source: absolutePath, config };
+    }
+  }
+
+  const sourceFiles = [
+    ...collectSourceFiles(path.join(cwd, 'src')),
+    ...collectSourceFiles(cwd),
+  ];
+  const dedupedFiles = [...new Set(sourceFiles)];
+
+  for (const filePath of dedupedFiles) {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const hasRbacSignal =
+      content.includes('createTypedRBAC(') ||
+      content.includes('new MultiTenantRBAC(') ||
+      content.includes('rbacConfig');
+
+    if (!hasRbacSignal) continue;
+
+    const config = extractConfigOverridesFromSource(content);
+    if (Object.keys(config.models || {}).length > 0 || Object.keys(config.keys || {}).length > 0) {
+      return { source: filePath, config };
+    }
+  }
+
+  return null;
 }
 
 function parseArgs(argv: string[]): { command?: string; flags: Record<string, string> } {
@@ -304,7 +503,28 @@ function generateMongoose(options: CliOptions): void {
 }
 
 function runInit(flags: Record<string, string>): void {
-  const orm = (flags.orm || 'sequelize') as 'sequelize' | 'mongoose';
+  const cwd = process.cwd();
+  const hasExplicitOverrides = Boolean(flags.config || flags.models || flags.keys);
+  let configSource: string | undefined;
+  let fileConfig: Record<string, any> = {};
+
+  if (flags.config) {
+    fileConfig = loadConfigOverrides(flags.config);
+    configSource = path.resolve(cwd, flags.config);
+  } else if (!hasExplicitOverrides) {
+    const detected = autoDetectConfigOverrides(cwd);
+    if (detected) {
+      fileConfig = detected.config;
+      configSource = detected.source;
+    }
+  }
+
+  const inferredOrm = fileConfig.sequelizeConfig
+    ? 'sequelize'
+    : fileConfig.mongodbConfig
+      ? 'mongoose'
+      : undefined;
+  const orm = (flags.orm || inferredOrm || 'sequelize') as 'sequelize' | 'mongoose';
   if (orm !== 'sequelize' && orm !== 'mongoose') {
     throw new Error(`Unsupported --orm: ${flags.orm}. Use sequelize|mongoose.`);
   }
@@ -317,10 +537,12 @@ function runInit(flags: Record<string, string>): void {
     outDir: path.resolve(process.cwd(), flags.out || './rbac-generated'),
     models: {
       ...DEFAULT_MODELS,
+      ...(fileConfig.models || {}),
       ...modelOverrides,
     },
     keys: {
       ...DEFAULT_KEYS,
+      ...(fileConfig.keys || {}),
       ...keyOverrides,
     },
   };
@@ -346,6 +568,9 @@ function runInit(flags: Record<string, string>): void {
     )
   );
 
+  if (configSource) {
+    process.stdout.write(`Resolved RBAC mappings from ${configSource}\n`);
+  }
   process.stdout.write(`Generated RBAC ${options.orm} files in ${options.outDir}\n`);
 }
 
@@ -365,12 +590,19 @@ function runDoctor(flags: Record<string, string>): void {
   const packageJsonPath = path.join(cwd, 'package.json');
   const tsConfigPath = path.join(cwd, 'tsconfig.json');
   const sequelizeCliPath = path.join(cwd, 'node_modules', '.bin', 'sequelize-cli');
+  const rbacCliPath = path.join(cwd, 'node_modules', '.bin', 'rbac');
+  const rbacPackagePath = path.join(cwd, 'node_modules', 'multi-tenant-rbac', 'package.json');
+  const defaultManifestPath = path.join(cwd, 'rbac-generated', 'rbac.init.json');
 
   const report: DoctorReport = {
     cwd,
     packageJsonExists: fs.existsSync(packageJsonPath),
     hasTsConfig: fs.existsSync(tsConfigPath),
     hasSequelizeCli: fs.existsSync(sequelizeCliPath),
+    hasRbacCli: fs.existsSync(rbacCliPath),
+    hasRbacPackage: fs.existsSync(rbacPackagePath),
+    hasRbacManifest: fs.existsSync(defaultManifestPath),
+    defaultManifestPath,
     recommendations: [],
   };
 
@@ -382,6 +614,16 @@ function runDoctor(flags: Record<string, string>): void {
   }
   if (!report.hasSequelizeCli) {
     report.recommendations.push('Install sequelize-cli in parent project if you use SQL migrations.');
+  }
+  if (!report.hasRbacPackage || !report.hasRbacCli) {
+    report.recommendations.push(
+      'Install multi-tenant-rbac in the parent project (npm install multi-tenant-rbac) so `rbac` CLI is available.'
+    );
+  }
+  if (!report.hasRbacManifest) {
+    report.recommendations.push(
+      `Run "rbac init --orm sequelize --out ./rbac-generated" or pass --manifest to validate.`
+    );
   }
 
   const output = JSON.stringify(report, null, 2);
@@ -397,11 +639,47 @@ function runValidate(flags: Record<string, string>): void {
   const cwd = process.cwd();
   const manifestPath = path.resolve(cwd, flags.manifest || './rbac-generated/rbac.init.json');
   if (!fs.existsSync(manifestPath)) {
-    throw new Error(`Manifest not found: ${manifestPath}`);
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          manifestPath,
+          valid: false,
+          missingModels: [],
+          missingKeys: [],
+          errors: [
+            `Manifest not found: ${manifestPath}. Run "rbac init --orm sequelize --out ./rbac-generated" first or pass --manifest.`,
+          ],
+        },
+        null,
+        2
+      )}\n`
+    );
+    process.exitCode = 1;
+    return;
   }
 
-  const raw = fs.readFileSync(manifestPath, 'utf8');
-  const parsed = JSON.parse(raw) as Record<string, any>;
+  let parsed: Record<string, any>;
+  try {
+    const raw = fs.readFileSync(manifestPath, 'utf8');
+    parsed = JSON.parse(raw) as Record<string, any>;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          manifestPath,
+          valid: false,
+          missingModels: [],
+          missingKeys: [],
+          errors: [`Failed to read/parse manifest: ${message}`],
+        },
+        null,
+        2
+      )}\n`
+    );
+    process.exitCode = 1;
+    return;
+  }
 
   const requiredModelKeys = ['users', 'roles', 'permissions', 'userRoles', 'rolePermissions'];
   const requiredFkKeys = ['userId', 'roleId', 'permissionId', 'tenantId'];
@@ -416,6 +694,9 @@ function runValidate(flags: Record<string, string>): void {
   };
 
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  if (!result.valid) {
+    process.exitCode = 1;
+  }
 }
 
 function runSeed(flags: Record<string, string>): void {
@@ -440,14 +721,16 @@ function runSeed(flags: Record<string, string>): void {
 function printUsage(): void {
   process.stdout.write(
     [
-      'rbac init [--orm sequelize|mongoose] [--out ./path] [--models users=users,roles=roles,...] [--keys userId=userId,roleId=roleId,...]',
+      'rbac init [--orm sequelize|mongoose] [--out ./path] [--config ./rbac.config.(json|js|ts)] [--models users=users,roles=roles,...] [--keys userId=userId,roleId=roleId,...]',
       'rbac migration:command [--url mysql://user:pass@host:3306/db] [--migrationsPath ./path] [--package multi-tenant-rbac]',
       'rbac doctor [--out ./rbac.doctor.json]',
       'rbac validate [--manifest ./rbac-generated/rbac.init.json]',
       'rbac seed [--out ./rbac.seed.json]',
       '',
       'Examples:',
+      'rbac init --out ./rbac-generated',
       'rbac init --orm sequelize --out ./rbac-generated',
+      'rbac init --config ./src/rbac.typed-config.ts --out ./rbac-generated',
       'rbac migration:command --url mysql://root:password@localhost:3306/lib_rbac',
       'rbac doctor --out ./rbac.doctor.json',
       'rbac seed --out ./rbac.seed.json',

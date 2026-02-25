@@ -6,6 +6,7 @@
   "scripts": {
     "start": "ts-node src/app.ts",
     "start:advanced": "ts-node src/app.advanced-schema.ts",
+    "start:typed": "ts-node src/app.typed-generic.ts",
     "build": "tsc"
   },
   "dependencies": {

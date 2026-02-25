@@ -32,6 +32,17 @@ This uses `src/app.advanced-schema.ts` and demonstrates:
 
 Use this pattern when integrating RBAC into an existing enterprise schema without renaming your DB tables.
 
+## Generate Migrations From Typed Config
+
+Use the same typed config used by `src/app.typed-generic.ts` to generate migration/model files:
+
+`npx rbac init --out ./rbac-generated`
+
+The CLI auto-detects `models` + `keys` from parent-project RBAC config/source files.
+You can still force a specific config file or override single values:
+
+`npx rbac init --config ./src/rbac.typed-config.ts --keys userId=adminRef --out ./rbac-generated-custom`
+
 ### Troubleshooting
 
 If you get `TenantErrorHandler: Fatal error` on advanced startup, your mapped tenant table likely exists already with incompatible columns.

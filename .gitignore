@@ -6,3 +6,7 @@ dist/
 donsoft/
 coverage/
 rbac-generated/
+rbac-generated-test/
+/examples/*/rbac-generated/
+/examples/*/rbac-generated-test/
+/examples/*/.*json

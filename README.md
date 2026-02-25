@@ -235,6 +235,18 @@ rbac init \
   --keys userId=adminId,tenantId=workspaceId,roleId=roleRefId,permissionId=permissionRefId
 ```
 
+Or load those mappings from a config file:
+
+```bash
+rbac init --config ./src/rbac.typed-config.ts --out ./rbac-generated
+```
+
+Or let the CLI auto-detect RBAC mappings from your parent project source/config:
+
+```bash
+rbac init --out ./rbac-generated
+```
+
 This maps to the same configuration used in `examples/mysql-sequelize-app/src/app.advanced-schema.ts`:
 
 ```ts
@@ -253,6 +265,36 @@ keys: {
   permissionId: 'permissionRefId',
 },
 ```
+
+For compile-time API validation with custom key names, use the typed factory:
+
+```ts
+import { createTypedRBAC } from 'multi-tenant-rbac';
+
+const rbac = createTypedRBAC(config);
+
+await rbac.assignRoleToUser({
+  workspaceId: tenantId,
+  adminId: 'admin-1',
+  roleSlug: 'finance-admin',
+});
+
+await rbac.assignRolesToUserBulk({
+  workspaceId: tenantId,
+  adminId: 'admin-1',
+  roleSlugs: ['finance-admin', 'finance-viewer'],
+});
+```
+
+In this mode, TypeScript expects `adminId` and `workspaceId` (not `userId` and `tenantId`) based on your `config.keys`.
+Typed helpers are available for:
+
+- `assignRoleToUser` / `assignRoleToUserAdvanced`
+- `getUserRole`, `getUserPermissions`, `getUserRolesAndPermissions`
+- `revokeRoleFromUser`, `listEffectivePermissions`, `authorize`
+- `assignRolesToUserBulk`, `syncUserRoles`, `findUserByRole`, `userHasPermission`
+
+See runnable example: `examples/mysql-sequelize-app/src/app.typed-generic.ts`.
 
 Run these after generation:
 
@@ -303,6 +345,7 @@ Generated SQL migrations are idempotent:
 - `examples/mysql-sequelize-app`
 - `examples/postgres-sequelize-app`
 - `examples/mongodb-app`
+- `examples/mysql-sequelize-typed-generic-app`
 
 ## Production Notes
 

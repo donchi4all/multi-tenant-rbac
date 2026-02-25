@@ -1,0 +1,24 @@
+{
+  "name": "mysql-sequelize-typed-generic-rbac-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone typed-generic RBAC example with auto-detected migration generation",
+  "scripts": {
+    "start": "ts-node src/app.ts",
+    "rbac:init": "./node_modules/.bin/rbac init --out ./rbac-generated",
+    "rbac:validate": "./node_modules/.bin/rbac validate --manifest ./rbac-generated/rbac.init.json",
+    "rbac:doctor": "./node_modules/.bin/rbac doctor",
+    "build": "tsc",
+    "test:all-round": "./scripts/test-all-round.sh"
+  },
+  "dependencies": {
+    "multi-tenant-rbac": "file:../..",
+    "mysql2": "^3.11.4",
+    "sequelize": "^6.37.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
+  }
+}
