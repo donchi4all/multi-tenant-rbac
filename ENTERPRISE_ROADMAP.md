@@ -30,6 +30,27 @@
 - [x] Improved runtime errors with operation/model/root-cause context.
 - [x] Standalone examples for MySQL, PostgreSQL, and MongoDB (standard + advanced flows).
 
+### Typed Generic Parity (v2.1)
+- [x] Configurable `models` and `keys` through typed config (`createTypedRBAC` + `typedConfig`).
+- [x] Enterprise helper APIs exercised in typed tests:
+  - `assignRolesToUserBulk`
+  - `revokeRoleFromUser`
+  - `syncUserRoles`
+  - `listEffectivePermissions`
+  - `authorize`
+  - `upsertRole`
+  - `grantPermissionsToRole`
+  - `revokePermissionsFromRole`
+- [x] CLI utilities verified in typed-generic all-round smoke flow:
+  - `rbac init` (auto-detect config)
+  - `rbac validate`
+  - `rbac seed`
+  - `rbac doctor`
+- [x] Safer sync controls mirrored in typed configs with `sequelizeConfig.syncOptions`.
+- [x] Idempotent generated SQL migrations validated against typed config mappings.
+- [x] Dedicated typed-generic standalone example:
+  - `examples/mysql-sequelize-typed-generic-app`
+
 ## Next Phase (v2.2)
 - [ ] Adapter conformance test matrix (shared contract tests).
 - [ ] CLI `init` templates for stricter SQL column typing and index hints.

@@ -30,6 +30,7 @@ describe('typed RBAC advanced API', () => {
 
     await rbac.ensurePermissions([
       { title: 'invoice.read', description: 'Read invoices', isActive: true },
+      { title: 'invoice.manage', description: 'Manage invoices', isActive: true },
     ]);
 
     const tenant = await rbac.createTenant({
@@ -49,6 +50,9 @@ describe('typed RBAC advanced API', () => {
       role: role.slug,
       permissions: ['invoice.read'],
     });
+
+    const granted = await rbac.grantPermissionsToRole(tenant.id, role.slug, ['invoice.manage']);
+    expect(granted.length).toBeGreaterThan(0);
 
     await rbac.assignRoleToUser({
       workspaceId: tenantId,
@@ -145,6 +149,20 @@ describe('typed RBAC advanced API', () => {
       permission: 'invoice.read',
     });
     expect(hasPermission).toBe(true);
+
+    const manageAllowed = await rbac.authorize({
+      workspaceId: tenantId,
+      adminId: 'admin-1',
+      permission: 'invoice.manage',
+    });
+    expect(manageAllowed).toBe(true);
+
+    const revokedPermissions = await rbac.revokePermissionsFromRole(
+      tenant.id,
+      role.slug,
+      ['invoice.manage']
+    );
+    expect(revokedPermissions).toBeGreaterThan(0);
 
     const hasPermissionAdvanced = await rbac.userHasPermissionAdvanced({
       workspaceId: tenantId,

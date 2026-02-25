@@ -10,6 +10,10 @@ export const typedRbacConfig = {
     password: process.env.MYSQL_PASSWORD || 'password',
     logging: false,
     sync: true,
+    syncOptions: {
+      alter: true,
+      force: false,
+    },
   },
   models: {
     users: 'rbac_admins_v2',
